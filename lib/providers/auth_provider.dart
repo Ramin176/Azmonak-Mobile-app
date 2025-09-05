@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../models/user.dart';
 
@@ -67,13 +68,22 @@ class AuthProvider with ChangeNotifier {
     await userBox.clear();
     notifyListeners();
   }
-
+Future<void> updateProfileImage(String path) async {
+    if (_user == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('profile_image_path_${_user!.id}', path);
+    _user = _user!.copyWith(profileImagePath: path);
+    notifyListeners(); // به همه ویجت‌ها اطلاع بده که عکس عوض شده
+  }
   Future<bool> tryAutoLogin() async {
     try {
       final token = await _storage.read(key: 'token');
       final userBox = await Hive.openBox<AppUser>('userBox');
       final user = userBox.get('currentUser');
       if (token != null && user != null && user.id.isNotEmpty) {
+         final prefs = await SharedPreferences.getInstance();
+      final imagePath = prefs.getString('profile_image_path_${user.id}'); 
+      _user = user.copyWith(profileImagePath: imagePath);
         _token = token;
         _user = user;
         notifyListeners();
@@ -94,6 +104,8 @@ class AuthProvider with ChangeNotifier {
     try {
       final userData = await _apiService.fetchCurrentUser(_token!);
       _user = AppUser.fromJson(userData);
+       final prefs = await SharedPreferences.getInstance();
+    final imagePath = prefs.getString('profile_image_path_${_user!.id}');
       final userBox = await Hive.openBox<AppUser>('userBox');
       await userBox.put('currentUser', _user!);
       notifyListeners();

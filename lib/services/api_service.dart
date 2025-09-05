@@ -187,7 +187,6 @@ Future<QuizAttempt> submitExam(List<String> courseIds, List<Map<String, dynamic>
     }
   }
 
-  // تابع جدید برای ریست کردن پسورد
   Future<Map<String, dynamic>> resetPassword(String email, String token, String password) async {
     try {
       final response = await http.put(
@@ -212,6 +211,33 @@ Future<List<Question>> fetchTrialQuestions() async {
   } else {
     throw Exception('Failed to fetch trial questions');
   }
+}
+
+Future<Map<String, dynamic>> updateUserDetails(String name, String token) async {
+  final response = await http.put(
+    Uri.parse('$_baseUrl/users/updatedetails'),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-auth-token': token,
+    },
+    body: json.encode({'name': name}),
+  );
+  return json.decode(response.body);
+}
+
+Future<Map<String, dynamic>> updateUserPassword(String oldPassword, String newPassword, String token) async {
+  final response = await http.put(
+    Uri.parse('$_baseUrl/users/updatepassword'),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-auth-token': token,
+    },
+    body: json.encode({
+      'oldPassword': oldPassword,
+      'newPassword': newPassword,
+    }),
+  );
+  return json.decode(response.body);
 }
 }
 

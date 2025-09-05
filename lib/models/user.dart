@@ -19,12 +19,15 @@ class AppUser {
   @HiveField(4)
   final DateTime? subscriptionExpiresAt;
 
+  @HiveField(5)
+  final String? profileImagePath;
   AppUser({
     required this.id,
     required this.name,
     required this.email,
     required this.subscriptionType,
     this.subscriptionExpiresAt,
+    this.profileImagePath
   });
 
   // یک getter هوشمند برای چک کردن وضعیت Premium
@@ -38,7 +41,16 @@ class AppUser {
     // اگر تاریخ انقضا "بعد از" لحظه حال باشد، کاربر Premium است
     return subscriptionExpiresAt!.isAfter(DateTime.now());
   }
-
+AppUser copyWith({String? name, String? profileImagePath}) {
+    return AppUser(
+      id: this.id,
+      name: name ?? this.name,
+      email: this.email,
+      subscriptionType: this.subscriptionType,
+      subscriptionExpiresAt: this.subscriptionExpiresAt,
+      profileImagePath: profileImagePath ?? this.profileImagePath,
+    );
+  }
   factory AppUser.fromJson(Map<String, dynamic> json) {
     return AppUser(
       id: json['_id'],

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math'; // برای استفاده از تابع min
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +10,7 @@ import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'premium_screen.dart';
 import 'review_screen.dart';
-import '../models/question.dart';
-
+import 'edit_profile_screen.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
   @override
@@ -93,7 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
-
+    final profileImageFile = user?.profileImagePath != null ? File(user!.profileImagePath!) : null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('پروفایل و پیشرفت'),
@@ -111,69 +111,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<QuizAttempt>>(
-        future: _historyFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-        // --- این بخش را هم برای حالت خالی بهتر می‌کنیم ---
-        return RefreshIndicator(
-          onRefresh: _refreshData,
-          child: ListView(
-            children: const [
-              Center(child: Padding(
-                padding: EdgeInsets.all(50.0),
-                child: Text('هنوز هیچ آزمونی ثبت نشده است.'), )),
-            ],
-          ),
-        );
-          }
-          
-          final history = snapshot.data!;
-          final totalTests = history.length;
-          final averageScore = history.map((h) => h.percentage).reduce((a, b) => a + b) / totalTests;
-          
-          final Map<String, List<double>> performanceByCourse = {};
-          for (var attempt in history) {
-            final courseName = attempt.courseName ?? 'آزمون عمومی';
-            if (!performanceByCourse.containsKey(courseName)) {
-              performanceByCourse[courseName] = [];
-            }
-            performanceByCourse[courseName]!.add(attempt.percentage);
-          }
-          final avgPerformanceByCourse = performanceByCourse.map((key, value) {
-            return MapEntry(key, value.reduce((a, b) => a + b) / value.length);
-          });
-
-          return RefreshIndicator(
-            onRefresh: _refreshData,
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                Row(children: [
-                    CircleAvatar(radius: 40, child: Text(user?.name.isNotEmpty == true ? user!.name.substring(0, 1) : 'U', style: const TextStyle(fontSize: 32))),
-                    const SizedBox(width: 16),
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(user?.name ?? 'کاربر', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                        Text(user?.email ?? '', style: const TextStyle(color: Colors.grey)),
-                    ]),
-                ]),
-                const Divider(height: 32),
-                _buildStatsSection(totalTests, averageScore),
-                const SizedBox(height: 24),
-                _buildLineChartSection(history),
-                const SizedBox(height: 24),
-                _buildBarChartSection(avgPerformanceByCourse),
-                const SizedBox(height: 24),
-                _buildRecentHistorySection(history),
-              ],
+      body: RefreshIndicator(
+      onRefresh: _refreshData,
+      child: ListView( // از ListView به عنوان والد اصلی استفاده می‌کنیم
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          // --- بخش ۱: اطلاعات پروفایل (همیشه نمایش داده می‌شود) ---
+          InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                  MaterialPageRoute(builder: (ctx) => const EditProfileScreen()));
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(children: [
+            CircleAvatar(
+  radius: 40,
+  backgroundImage: profileImageFile != null ? FileImage(profileImageFile) : null,
+  child: profileImageFile == null 
+      ? Text(user?.name.isNotEmpty == true ? user!.name.substring(0, 1) : 'U', style: const TextStyle(fontSize: 32))
+      : null,
+),
+              
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(user?.name ?? 'کاربر', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                    Text(user?.email ?? '', style: const TextStyle(color: Colors.grey)),
+                  ]),
+                ),
+                const Icon(Icons.edit_outlined, color: Colors.grey),
+              ]),
             ),
-          );
-        },
+          ),
+          const Divider(height: 32),
+
+          // --- بخش ۲: آمار و نمودارها (وابسته به Future) ---
+          FutureBuilder<List<QuizAttempt>>(
+            future: _historyFuture,
+            builder: (context, snapshot) {
+              // حالت لودینگ
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: Padding(padding: EdgeInsets.all(50.0), child: CircularProgressIndicator()));
+              }
+              
+              // حالت خطا
+              if (snapshot.hasError) {
+                return Center(child: Text('خطا در دریافت تاریخچه: ${snapshot.error}'));
+              }
+              
+              // حالت بدون آزمون (داده خالی)
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Padding(
+                  padding: EdgeInsets.all(50.0),
+                  child: Text('هنوز هیچ آزمونی ثبت نشده است. \n با شرکت در آزمون‌ها، پیشرفت خود را اینجا ببینید.', textAlign: TextAlign.center),
+                ));
+              }
+              
+              // حالت موفقیت‌آمیز (داده وجود دارد)
+              final history = snapshot.data!;
+              final totalTests = history.length;
+              final averageScore = history.map((h) => h.percentage).reduce((a, b) => a + b) / totalTests;
+              
+              // ... (محاسبه avgPerformanceByCourse بدون تغییر) ...
+
+              // ویجت Column برای نمایش تمام بخش‌های وابسته به تاریخچه
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildStatsSection(totalTests, averageScore),
+                  const SizedBox(height: 24),
+                  _buildLineChartSection(history),
+                  const SizedBox(height: 24),
+                  // _buildBarChartSection(avgPerformanceByCourse),
+                  const SizedBox(height: 24),
+                  _buildRecentHistorySection(history),
+                ],
+              );
+            },
+          ),
+        ],
       ),
-    );
+   ) );
   }
   
   Widget _buildStatsSection(int totalTests, double averageScore) {
