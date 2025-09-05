@@ -59,6 +59,7 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
       achievedScore: correct,
       totalScore: widget.questions.length,
       isSynced: false,
+      
     );
     
     Navigator.of(context).pushReplacement(

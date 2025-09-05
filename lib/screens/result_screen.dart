@@ -46,10 +46,10 @@ class ResultScreen extends StatelessWidget {
                 if (isTrial)
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(), // فقط به صفحه لاگین برگرد
-                child: const Text('بازگشت به صفحه ورود'),
+                child: Text('بازگشت به صفحه قبل'),
               )
             else
-              Row(
+            !isTrial? SizedBox(height: 10,):  Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   ElevatedButton.icon(

@@ -1,4 +1,5 @@
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
+import 'package:azmoonak_app/screens/trial_quiz_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -49,7 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         throw Exception('کاربر وارد نشده است.');
       }
+      final onlineCategories = await _apiService.fetchCategories(token!);
     } catch (e) {
+      
       if (mounted) setState(() { _errorMessage = e.toString().replaceAll("Exception: ", ""); });
     } finally {
       if (mounted) setState(() { _isLoading = false; });
@@ -144,7 +147,24 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
-
+ void _startTrialQuiz() async {
+    showDialog(context: context, builder: (_) => const Center(child: CircularProgressIndicator()));
+    try {
+      final trialQuestions = await _hiveService.getTrialQuestions();
+      if(mounted) Navigator.of(context).pop();
+      
+      if (trialQuestions.isNotEmpty) {
+          Navigator.of(context).push(
+              MaterialPageRoute(builder: (ctx) => TrialQuizScreen(questions: trialQuestions))
+          );
+      } else {
+          throw Exception('سوالات آزمایشی یافت نشد. لطفا به اینترنت متصل شوید و برنامه را دوباره باز کنید.');
+      }
+    } catch (e) {
+      if(mounted) Navigator.of(context).pop();
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll("Exception: ", ""))));
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -156,76 +176,79 @@ class _HomeScreenState extends State<HomeScreen> {
       final user = authProvider.user;
       const tealColor = Color(0xFF008080);
       return Scaffold(
-        floatingActionButton: widget.isPickerMode ? null : FloatingActionButton.extended(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const TestSetupScreen())),
-          label: const Text('ساخت آزمون جدید'),
-          icon: const Icon(Icons.add),
-          backgroundColor: tealColor,
-        ),
-        body: RefreshIndicator(
-            onRefresh: _loadInitialData, 
-          child: CustomScrollView(
-            slivers: [
-              if (!widget.isPickerMode)
-                SliverAppBar(
-                  backgroundColor: tealColor, expandedHeight: 200.0, pinned: true,
-                  flexibleSpace: FlexibleSpaceBar(
-                    title: Text('سلام، ${user?.name ?? ''}!', style: const TextStyle(fontSize: 16)),
-                    background: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(colors: [tealColor, Color(0xFF004D40)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                      ),
-                    ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const TestSetupScreen())),
+        label: const Text('ساخت آزمون سفارشی', style: TextStyle(color: Colors.white),),
+        icon: const Icon(Icons.add_circle_outline, color:  Colors.white,),
+        backgroundColor: tealColor,
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadInitialData,
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              backgroundColor: tealColor,
+              expandedHeight: 150.0,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text('سلام، ${user?.name ?? 'کاربر'}!', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(colors: [tealColor, Color(0xFF004D40)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                   ),
                 ),
-              
-              if (user != null && !widget.isPickerMode)
-                SliverToBoxAdapter(child: _buildSubscriptionCard(context, user.isPremium)),
-              
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 8.0),
-                  child: Text('دسته‌بندی آزمون‌ها', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            
+            // --- بخش جدید: دسترسی‌های سریع ---
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    if (user != null && !user.isPremium) _buildPremiumCallToAction(context),
+                    const SizedBox(height: 16),
+                    _buildTrialQuizCard(),
+                  ],
                 ),
               ),
-              
-              _isLoading
-                ? const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator())))
-                : _errorMessage.isNotEmpty
-                  ? SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Text(_errorMessage, textAlign: TextAlign.center))))
-                  : _categories.isEmpty
-                    ? const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text('هیچ دوره‌ای یافت نشد.'))))
-                    : SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              return Card(
-                                child: ListTile(
-                                  title: Text(_categories[index].name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                                  onTap: () async {
-                                    final List<Course>? result = await Navigator.of(context).push<List<Course>>(
-                                      MaterialPageRoute(
-                                        builder: (ctx) => CourseListScreen(category: _categories[index], isPickerMode: widget.isPickerMode),
-                                      ),
-                                    );
-                                    if (widget.isPickerMode && result != null && result.isNotEmpty) {
-                                      Navigator.of(context).pop(result);
-                                    }
-                                  },
-                                ),
-                              );
-                            },
-                            childCount: _categories.length,
-                          ),
-                        ),
+            ),
+            // -----------------------------
+
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                child: Text('دسته‌بندی‌های اصلی', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            
+            _isLoading
+              ? const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator())))
+              : _errorMessage.isNotEmpty
+                ? SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Text(_errorMessage, textAlign: TextAlign.center))))
+                : SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0),
+                    // --- بخش جدید: استفاده از GridView ---
+                    sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, // ۲ ستون در موبایل
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.2, // نسبت عرض به ارتفاع کارت‌ها
                       ),
-        ],
-          ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          return _buildCategoryCard(_categories[index]);
+                        },
+                        childCount: _categories.length,
+                      ),
+                    ),
+                    // ------------------------------------
+                  ),
+          ],
         ),
+      ),
       );
-      
   });
   }
 
@@ -254,28 +277,104 @@ class _HomeScreenState extends State<HomeScreen> {
    }
    
    Widget _buildPremiumCallToAction(BuildContext context) {
-     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Card(
+     return Card(
         elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: InkWell(
+          borderRadius: BorderRadius.circular(16),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PremiumScreen())),
-          child: Container(
-            padding: const EdgeInsets.all(16.0),
-            child: const Row(
+          child: const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Row(
               children: [
-                Icon(Icons.star, color: Colors.amber, size: 40),
-                SizedBox(width: 16),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('عضویت ویژه', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('دسترسی نامحدود به همه سوالات', style: TextStyle(color: Colors.grey)),
-                ],)),
-                Icon(Icons.arrow_forward_ios),
+                Icon(Icons.star_rounded, color: Colors.amber, size: 32),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('عضویت ویژه', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('دسترسی نامحدود', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
               ],
             ),
+          ),
+        ),
+      );
+   }
+   Widget _buildCategoryCard(Category category) {
+    const tealColor = Color(0xFF008080);
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          // استفاده صحیح از Navigator.push
+          final List<Course>? result = await Navigator.of(context).push<List<Course>>(
+            MaterialPageRoute(
+              builder: (ctx) => CourseListScreen(
+                category: category, 
+                isPickerMode: widget.isPickerMode
+              ),
+            ),
+          );
+          
+          if (widget.isPickerMode && result != null && result.isNotEmpty) {
+            Navigator.of(context).pop(result);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: tealColor.withOpacity(0.1),
+                child: const Icon(Icons.school_rounded, color: tealColor, size: 28),
+              ),
+              const SizedBox(height: 12),
+              Text(category.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), textAlign: TextAlign.center),
+            ],
           ),
         ),
       ),
     );
    }
-}
+    Widget _buildTrialQuizCard() {
+     return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _startTrialQuiz,
+          child: const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Icon(Icons.quiz_rounded, color: Color(0xFF008080), size: 32),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('آزمون آمادگی', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('با ۱۰ سوال رایگان خود را بسنجید', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+              ],
+            ),
+          ),
+        ),
+      );
+
+
+    }
+   }
+   
