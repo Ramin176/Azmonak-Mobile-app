@@ -1,12 +1,12 @@
 // فایل: lib/screens/review_screen.dart
+
+import 'package:azmoonak_app/models/attempt_question.dart';
 import 'package:flutter/material.dart';
-import '../models/question.dart'; // فرض می‌کنیم این مدل را داریم
-import '../models/quiz_attempt.dart';
 
 class ReviewScreen extends StatelessWidget {
   // این صفحه به تمام اطلاعات آزمون اصلی نیاز دارد
   // ما در آینده باید این اطلاعات را به درستی به اینجا پاس بدهیم
-  final List<Question> questions;
+  final List<AttemptQuestion> questions;
   final Map<String, int> userAnswers;
 
   const ReviewScreen({
@@ -49,11 +49,11 @@ class ReviewScreen extends StatelessWidget {
                   // نمایش تمام گزینه‌ها با مشخص کردن پاسخ صحیح و پاسخ کاربر
                   ...List.generate(question.options.length, (optIndex) {
                     return _buildReviewOption(
-                      context,
-                      question.options[optIndex]['text'] ?? '',
-                      isCorrect: optIndex == question.correctAnswerIndex,
-                      isSelected: optIndex == userAnswerIndex,
-                    );
+  context,
+  question.options[optIndex], // <-- حالا options یک لیست از رشته‌هاست
+  isCorrect: optIndex == question.correctAnswerIndex,
+  isSelected: optIndex == userAnswerIndex,
+);
                   }),
                 ],
               ),

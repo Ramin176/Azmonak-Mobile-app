@@ -1,38 +1,38 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'attempt_details.dart';
+part of 'plan.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class AttemptDetailsAdapter extends TypeAdapter<AttemptDetails> {
+class PlanAdapter extends TypeAdapter<Plan> {
   @override
-  final int typeId = 5;
+  final int typeId = 7;
 
   @override
-  AttemptDetails read(BinaryReader reader) {
+  Plan read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return AttemptDetails(
-      attemptId: fields[0] as String,
-      questions: (fields[1] as List).cast<AttemptQuestion>(),
-      userAnswers: (fields[2] as Map).cast<String, int>(),
+    return Plan(
+      duration: fields[0] as String,
+      price: fields[1] as String,
+      questionLimit: fields[2] as int,
     );
   }
 
   @override
-  void write(BinaryWriter writer, AttemptDetails obj) {
+  void write(BinaryWriter writer, Plan obj) {
     writer
       ..writeByte(3)
       ..writeByte(0)
-      ..write(obj.attemptId)
+      ..write(obj.duration)
       ..writeByte(1)
-      ..write(obj.questions)
+      ..write(obj.price)
       ..writeByte(2)
-      ..write(obj.userAnswers);
+      ..write(obj.questionLimit);
   }
 
   @override
@@ -41,7 +41,7 @@ class AttemptDetailsAdapter extends TypeAdapter<AttemptDetails> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is AttemptDetailsAdapter &&
+      other is PlanAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

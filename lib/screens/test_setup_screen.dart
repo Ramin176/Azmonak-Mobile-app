@@ -127,7 +127,7 @@ class _TestSetupScreenState extends State<TestSetupScreen> {
 
                   if (user.isPremium) {
                     // کاربر ویژه: فقط از دیتابیس محلی بخوان
-                    questions = await _hiveService.getRandomQuestions(courseIds, limit);
+                     questions = await _hiveService.getRandomQuestions(courseIds, limit, user.id);
                     if (questions.isEmpty) {
                       throw Exception('هیچ سوالی در حافظه آفلاین یافت نشد. لطفا از صفحه اصلی همگام‌سازی کنید.');
                     }

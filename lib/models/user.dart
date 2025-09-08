@@ -3,24 +3,24 @@ import 'package:hive_flutter/hive_flutter.dart';
 part 'user.g.dart';
 @HiveType(typeId: 4) // ID منحصر به فرد
 
-class AppUser {
+class AppUser extends HiveObject {
   @HiveField(0)
-  final String id;
+   String id;
   
   @HiveField(1)
-  final String name;
+   String name;
   
   @HiveField(2)
   final String email;
   
   @HiveField(3)
-  final String subscriptionType;
+   String subscriptionType;
   
   @HiveField(4)
-  final DateTime? subscriptionExpiresAt;
+   DateTime? subscriptionExpiresAt;
 
   @HiveField(5)
-  final String? profileImagePath;
+    String? profileImagePath;
   AppUser({
     required this.id,
     required this.name,

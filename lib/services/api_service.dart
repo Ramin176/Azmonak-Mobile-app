@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // آدرس سرور شما. اگر از شبیه‌ساز اندروید استفاده می‌کنید، این آدرس درست است.
   // برای شبیه‌ساز iOS یا گوشی واقعی، IP کامپیوتر خود را جایگزین 10.0.2.2 کنید.
-  static const String _baseUrl = "http://10.10.10.249:5000/api";
+  static const String _baseUrl = "http://192.168.137.1:5000/api";
   
    Future<List<Question>> fetchAllQuestionsForCourse(String courseId, String token) async {
         final response = await http.get(
@@ -203,7 +203,7 @@ Future<QuizAttempt> submitExam(List<String> courseIds, List<Map<String, dynamic>
       return {'error': 'Could not connect to the server.'};
     }
   }
-Future<List<Question>> fetchTrialQuestions() async {
+static Future<List<Question>> fetchTrialQuestions() async {
   final response = await http.get(Uri.parse('$_baseUrl/questions/trial'));
   if (response.statusCode == 200) {
     List<dynamic> data = json.decode(response.body);
@@ -212,7 +212,14 @@ Future<List<Question>> fetchTrialQuestions() async {
     throw Exception('Failed to fetch trial questions');
   }
 }
-
+Future<Map<String, dynamic>> fetchSettings() async {
+    final response = await http.get(Uri.parse('$_baseUrl/settings'));
+    if (response.statusCode == 200) {
+        return json.decode(response.body);
+    } else {
+        throw Exception('Failed to load settings');
+    }
+}
 Future<Map<String, dynamic>> updateUserDetails(String name, String token) async {
   final response = await http.put(
     Uri.parse('$_baseUrl/users/updatedetails'),

@@ -22,13 +22,14 @@ class AppUserAdapter extends TypeAdapter<AppUser> {
       email: fields[2] as String,
       subscriptionType: fields[3] as String,
       subscriptionExpiresAt: fields[4] as DateTime?,
+      profileImagePath: fields[5] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppUser obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +39,9 @@ class AppUserAdapter extends TypeAdapter<AppUser> {
       ..writeByte(3)
       ..write(obj.subscriptionType)
       ..writeByte(4)
-      ..write(obj.subscriptionExpiresAt);
+      ..write(obj.subscriptionExpiresAt)
+      ..writeByte(5)
+      ..write(obj.profileImagePath);
   }
 
   @override

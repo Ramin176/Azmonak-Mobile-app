@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:hive/hive.dart';
 part 'question.g.dart';
 @HiveType(typeId: 2)
-class Question {
+class Question extends HiveObject{
   @HiveField(0)
   final String id;
   @HiveField(1)
@@ -20,6 +20,8 @@ class Question {
   final String explanation;
   @HiveField(7)
   final int score;
+   @HiveField(8)
+  final String? imageUrl;
   Question( {
     required this.score,
     required this.id,
@@ -28,7 +30,8 @@ class Question {
     required this.type,
     required this.options,
     required this.correctAnswerIndex,
-    required this.explanation
+    required this.explanation,
+     this.imageUrl,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
@@ -42,7 +45,8 @@ class Question {
           .toList() ?? [],
         explanation: json['explanation'] ?? '',
       correctAnswerIndex: json['correctAnswerIndex'],
-      score: json['score'] ?? 0,
+      score: json['score'] ?? 1,
+       imageUrl: json['imageUrl'],
     );
   }
   

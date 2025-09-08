@@ -16,18 +16,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
-
+  bool _isLoading = false;
   @override
   void initState() {
     super.initState();
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    _nameController.text = user?.name ?? '';
-    _loadProfileImage();
-     _nameController.text = user?.name ?? '';
-    if (user?.profileImagePath != null) {
-        _profileImage = File(user!.profileImagePath!);
+    if (user != null) {
+      _nameController.text = user.name;
+      if (user.profileImagePath != null) {
+        _profileImage = File(user.profileImagePath!);
+      }
     }
   }
+
    
   Future<void> _loadProfileImage() async {
     final prefs = await SharedPreferences.getInstance();
@@ -38,33 +39,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       });
     }
   }
-
-   Future<void> _pickImage() async {
+Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
     if (pickedFile != null) {
       setState(() { _profileImage = File(pickedFile.path); });
-      
-      await Provider.of<AuthProvider>(context, listen: false).updateProfileImage(pickedFile.path);
     }
   }
 
   void _saveProfile() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final token = authProvider.token!;
-    final apiService = ApiService();
-
-    // آپدیت نام
-    await apiService.updateUserDetails(_nameController.text.trim(), token);
-
-    // رفرش کردن اطلاعات کاربر در کل اپلیکیشن
-    await authProvider.refreshUser();
-    
-    if(mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('پروفایل با موفقیت آپدیت شد.')));
-      Navigator.of(context).pop();
+    setState(() { _isLoading = true; });
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      
+      // آپدیت نام
+      await authProvider.updateUserName(_nameController.text.trim());
+      
+      // آپدیت عکس
+      if (_profileImage != null) {
+        await authProvider.updateProfileImage(_profileImage!.path);
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('پروفایل با موفقیت آپدیت شد.')));
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا در آپدیت پروفایل: ${e.toString()}')));
+      }
+    } finally {
+      if (mounted) setState(() { _isLoading = false; });
     }
   }
-
+   
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(

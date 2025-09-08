@@ -24,20 +24,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _historyFuture = _hiveService.getQuizHistory();
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+     if (user != null) {
+      _historyFuture = _hiveService.getQuizHistory(user.id);
+    } else {
+      _historyFuture = Future.value([]);
+    }
   }
 
-  Future<void> _refreshData() async {
+   Future<void> _refreshData() async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     await Provider.of<AuthProvider>(context, listen: false).refreshUser();
-    setState(() {
-      _historyFuture = _hiveService.getQuizHistory();
-    });
+    if (user != null) {
+      setState(() {
+        _historyFuture = _hiveService.getQuizHistory(user.id);
+      });
+    }
   }
 
   void _navigateToReviewScreen(String attemptId) async {
+     final user = Provider.of<AuthProvider>(context, listen: false).user;
     try {
       showDialog(context: context, builder: (_) => const Center(child: CircularProgressIndicator()));
-      final details = await _hiveService.getAttemptDetails(attemptId);
+      if (user == null) return;
+     final details = await _hiveService.getAttemptDetails(attemptId, user.id);
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
       if (details == null) {
           if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جزئیات این آزمون برای مرور یافت نشد.')));
@@ -126,9 +136,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Row(children: [
-            CircleAvatar(
-  radius: 40,
-  backgroundImage: profileImageFile != null ? FileImage(profileImageFile) : null,
+             CircleAvatar(
+          radius: 40,
+          backgroundImage: profileImageFile != null ? FileImage(profileImageFile) : null,
   child: profileImageFile == null 
       ? Text(user?.name.isNotEmpty == true ? user!.name.substring(0, 1) : 'U', style: const TextStyle(fontSize: 32))
       : null,

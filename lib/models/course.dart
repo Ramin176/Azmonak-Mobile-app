@@ -3,7 +3,7 @@ import 'package:hive/hive.dart';
 part 'course.g.dart'; // این فایل توسط build_runner ساخته می‌شود
 
 @HiveType(typeId: 1) // ID منحصر به فرد برای Hive
-class Course {
+class Course extends HiveObject{
   @HiveField(0)
   final String id;
   

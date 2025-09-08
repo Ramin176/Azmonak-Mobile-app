@@ -43,10 +43,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
  Future<void> _syncTrialQuestions() async {
     try {
-      final apiService = ApiService();
-      final hiveService = HiveService();
-      final onlineQuestions = await apiService.fetchTrialQuestions();
-      await hiveService.syncData(HiveService.trialQuestionsBoxName, onlineQuestions);
+       final hiveService = HiveService();
+    final onlineQuestions = await ApiService.fetchTrialQuestions();
+      await hiveService.syncTrialQuestions(onlineQuestions);
       print("${onlineQuestions.length} trial questions synced successfully.");
     } catch (e) {
       print("Could not sync trial questions: $e");

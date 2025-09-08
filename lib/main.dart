@@ -1,8 +1,10 @@
 import 'package:azmoonak_app/models/attempt_details.dart';
 import 'package:azmoonak_app/models/category.dart';
 import 'package:azmoonak_app/models/course.dart';
+import 'package:azmoonak_app/models/plan.dart';
 import 'package:azmoonak_app/models/question.dart';
 import 'package:azmoonak_app/models/quiz_attempt.dart';
+import 'package:azmoonak_app/models/settings.dart';
 import 'package:azmoonak_app/models/user.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -10,6 +12,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/splash_screen.dart';
+import 'models/attempt_question.dart';
+import 'models/settings.dart';
+import 'package:flutter_localization/flutter_localization.dart';
 void main() async{
    WidgetsFlutterBinding.ensureInitialized(); 
   await Hive.initFlutter();
@@ -19,6 +24,12 @@ void main() async{
   Hive.registerAdapter(QuizAttemptAdapter());
   Hive.registerAdapter(AppUserAdapter());
   Hive.registerAdapter(AttemptDetailsAdapter());
+  Hive.registerAdapter(AttemptQuestionAdapter());
+  Hive.registerAdapter(AppSettingsAdapter());
+  Hive.registerAdapter(PlanAdapter());
+   await Hive.openBox<AppUser>('userBox');
+  await Hive.openBox<Question>('trial_questions');
+  await Hive.openBox<AppSettings>('settings');
    await initializeDateFormatting('fa', null); 
   runApp(const AzmoonakApp());
 }
@@ -36,6 +47,13 @@ class AzmoonakApp extends StatelessWidget {
       create: (ctx) => AuthProvider(),
       child: MaterialApp(
         title: 'آزمونک',
+      //    onGenerateTitle: (context) {
+      //   // عنوان اپ را از فایل ترجمه بخوان
+      //   // return AppLocalizations.of(context)!.appName;
+      // },
+      //   localizationsDelegates: AppLocalizations.localizationsDelegates,
+      // supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('fa'),
         // --- تعریف تم سراسری ---
         theme: ThemeData(
           primaryColor: tealColor,
@@ -70,7 +88,7 @@ class AzmoonakApp extends StatelessWidget {
             margin: const EdgeInsets.symmetric(vertical: 8),
           ),
 
-          // استایل فیلدهای ورودی
+         
           inputDecorationTheme: InputDecorationTheme(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -86,7 +104,7 @@ class AzmoonakApp extends StatelessWidget {
             ),
           ),
         ),
-        // ------------------------
+       
         home: const SplashScreen(),
         debugShowCheckedModeBanner: false,
       ),

@@ -1,6 +1,7 @@
 
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
 import 'package:azmoonak_app/models/attempt_details.dart';
+import 'package:azmoonak_app/models/attempt_question.dart';
 import 'package:azmoonak_app/models/quiz_attempt.dart';
 import 'package:azmoonak_app/providers/auth_provider.dart';
 import 'package:azmoonak_app/screens/result_screen.dart';
@@ -66,30 +67,107 @@ class _QuizScreenState extends State<QuizScreen> {
       }
     });
   }
+// void _submitAndShowResults() async {
+//   showDialog(context: context, barrierDismissible: false, builder: (ctx) => const Center(child: CircularProgressIndicator()));
+//    final user = Provider.of<AuthProvider>(context, listen: false).user;
+//   try {
+//     final connectivityResult = await (Connectivity().checkConnectivity());
+//     final apiService = ApiService();
+//     final token = Provider.of<AuthProvider>(context, listen: false).token;
+
+//     if (token == null || widget.courseIds.isEmpty) {
+//       throw Exception('اطلاعات آزمون ناقص است. لطفا دوباره تلاش کنید.');
+//     }
+    
+//     final answersForApi = _userAnswers.entries.map((e) => {'questionId': e.key, 'answerIndex': e.value}).toList();
+//     QuizAttempt result;
+//  final questionsForReview = widget.questions.map((q) {
+//       return AttemptQuestion(
+//         id: q.id,
+//         text: q.text,
+//         options: q.options,
+//         correctAnswerIndex: q.correctAnswerIndex,
+//       );
+//     }).toList();
+//      final details = AttemptDetails(
+//       attemptId: result.id,
+//       questions: questionsForReview, // <-- حالا از لیست تبدیل شده استفاده می‌کنیم
+//       userAnswers: _userAnswers,
+//     );
+//     await _hiveService.saveAttemptDetails(details, user!.id);
+//     if (connectivityResult != ConnectivityResult.none) {
+//       // --- حالت آنلاین ---
+//       print("آنلاین: در حال ارسال نتایج به سرور...");
+//       // حالا لیست کامل ID ها را ارسال می‌کنیم
+//       result = await apiService.submitExam(widget.courseIds, answersForApi, token);
+//       result.isSynced = true;
+//     } else {
+//       // --- حالت آفلاین ---
+//       print("آفلاین: در حال محاسبه و ذخیره نتایج به صورت محلی...");
+//       int correct = 0;
+//       widget.questions.forEach((q) {
+//         if (_userAnswers.containsKey(q.id) && _userAnswers[q.id] == q.correctAnswerIndex) { correct++; }
+//       });
+//       result = QuizAttempt(
+//         id: 'offline_${DateTime.now().millisecondsSinceEpoch}',
+//         percentage: (correct / widget.questions.length) * 100,
+//         createdAt: DateTime.now(),
+//         correctAnswers: correct,
+//         totalQuestions: widget.questions.length,
+//         isSynced: false,
+//       );
+//     }
+    
+//     final hiveService = HiveService();
+//     await _hiveService.saveQuizAttempt(result, user!.id);
+//      final details = AttemptDetails(
+//       attemptId: result.id,
+//       questions: widget.questions,
+//       userAnswers: _userAnswers,
+//     );
+//       await _hiveService.saveQuizAttempt(result, user!.id);
+//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
+//     if (mounted) {
+//         Navigator.of(context).pushReplacement(
+//             MaterialPageRoute(
+//                 builder: (ctx) => ResultScreen(
+//                     attempt: result,
+//                     questions: widget.questions,
+//                     userAnswers: _userAnswers,
+//                 ),
+//             ),
+//         );
+//     }
+//   } catch (e) {
+//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
+//     if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//             SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}'))
+//         );
+//     }
+//   }
+// }
+
 void _submitAndShowResults() async {
   showDialog(context: context, barrierDismissible: false, builder: (ctx) => const Center(child: CircularProgressIndicator()));
-  
-  try {
-    final connectivityResult = await (Connectivity().checkConnectivity());
-    final apiService = ApiService();
-    final token = Provider.of<AuthProvider>(context, listen: false).token;
 
-    if (token == null || widget.courseIds.isEmpty) {
-      throw Exception('اطلاعات آزمون ناقص است. لطفا دوباره تلاش کنید.');
-    }
-    
+  try {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    final token = authProvider.token;
+    final connectivityResult = await (Connectivity().checkConnectivity());
     final answersForApi = _userAnswers.entries.map((e) => {'questionId': e.key, 'answerIndex': e.value}).toList();
+    
+    // متغیر result را اینجا با مقدار اولیه تعریف می‌کنیم
     QuizAttempt result;
 
-    if (connectivityResult != ConnectivityResult.none) {
+    if (connectivityResult != ConnectivityResult.none && token != null && user != null) {
       // --- حالت آنلاین ---
-      print("آنلاین: در حال ارسال نتایج به سرور...");
-      // حالا لیست کامل ID ها را ارسال می‌کنیم
+      final apiService = ApiService();
       result = await apiService.submitExam(widget.courseIds, answersForApi, token);
       result.isSynced = true;
     } else {
       // --- حالت آفلاین ---
-      print("آفلاین: در حال محاسبه و ذخیره نتایج به صورت محلی...");
       int correct = 0;
       widget.questions.forEach((q) {
         if (_userAnswers.containsKey(q.id) && _userAnswers[q.id] == q.correctAnswerIndex) { correct++; }
@@ -101,17 +179,39 @@ void _submitAndShowResults() async {
         correctAnswers: correct,
         totalQuestions: widget.questions.length,
         isSynced: false,
+        courseName: widget.courseIds.length == 1 ? "Single Course" : "آزمون عمومی", // یک نام پیش‌فرض
       );
     }
     
+    // --- ذخیره در Hive (بخش کلیدی) ---
     final hiveService = HiveService();
-    await hiveService.saveQuizAttempt(result);
-     final details = AttemptDetails(
-      attemptId: result.id,
-      questions: widget.questions,
-      userAnswers: _userAnswers,
-    );
-    await _hiveService.saveAttemptDetails(details);
+    
+    // ۱. ذخیره نتیجه کلی
+    if(user != null) await hiveService.saveQuizAttempt(result, user.id);
+
+    // ۲. تبدیل Question ها به AttemptQuestion برای ذخیره جزئیات
+    final questionsForReview = widget.questions.map((q) {
+  return AttemptQuestion(
+    id: q.id,
+    text: q.text,
+    // --- تغییر اصلی: فقط متن گزینه‌ها را استخراج می‌کنیم ---
+    options: q.options.map((opt) => opt['text'] ?? '').toList(),
+    correctAnswerIndex: q.correctAnswerIndex,
+  );
+}).toList();
+
+    // ۳. ساخت آبجکت جزئیات
+   final details = AttemptDetails(
+  attemptId: result.id,
+  questions: questionsForReview,
+  userAnswers: _userAnswers, // <-- اینجا بدون تغییر است
+);
+
+    // ۴. ذخیره جزئیات
+    if(user != null) await hiveService.saveAttemptDetails(details, user.id);
+    
+    // ------------------------------------
+
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
     if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -127,20 +227,18 @@ void _submitAndShowResults() async {
   } catch (e) {
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
     if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}'))
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}')));
     }
   }
 }
-
-
   @override
   Widget build(BuildContext context) {
     final currentQuestion = widget.questions[_currentIndex];
     final progress = (_currentIndex + 1) / widget.questions.length;
     final isBookmarked = _bookmarkedQuestions.contains(currentQuestion.id);
-
+ final fullImageUrl = currentQuestion.imageUrl != null 
+      ? "http:// 192.168.137.1:5000${currentQuestion.imageUrl}" // برای شبیه‌ساز اندروید
+      : null;
     return Scaffold(
       appBar: AppBar(
         title: Text('سوال ${_currentIndex + 1} از ${widget.questions.length}'),
@@ -180,6 +278,19 @@ void _submitAndShowResults() async {
                 currentQuestion.text,
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.5),
                 textAlign: TextAlign.center,
+              ),
+            ),
+              // --- بخش جدید: نمایش تصویر (اگر وجود داشت) ---
+          if (fullImageUrl != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16.0),
+              height: 200,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                image: DecorationImage(
+                  image: NetworkImage(fullImageUrl),
+                  fit: BoxFit.contain, // یا BoxFit.cover
+                ),
               ),
             ),
             const SizedBox(height: 24),

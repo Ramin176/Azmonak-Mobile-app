@@ -1,18 +1,18 @@
-import 'package:hive/hive.dart';
-import 'question.dart';
+
+import 'package:hive_flutter/hive_flutter.dart';
+
+import 'attempt_question.dart';
 
 part 'attempt_details.g.dart';
 
-@HiveType(typeId: 5) // یک ID جدید و منحصر به فرد
+@HiveType(typeId: 5)
 class AttemptDetails extends HiveObject {
   @HiveField(0)
-  final String attemptId;
-
+  String attemptId;
   @HiveField(1)
-  final List<Question> questions;
-
+  List<AttemptQuestion> questions;
   @HiveField(2)
-  final Map<String, int> userAnswers;
+  Map<String, int> userAnswers; // <-- ما Map را برمی‌گردانیم. Hive از Map های ساده پشتیبانی می‌کند.
 
   AttemptDetails({
     required this.attemptId,
