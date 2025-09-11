@@ -81,11 +81,11 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
 
     return Scaffold(
       appBar: AppBar(
+         backgroundColor: Colors.teal,
+        elevation: 0,
+        centerTitle: true,
         title: Text('سوال ${_currentIndex + 1} از ${widget.questions.length}'),
-        actions: [
-          // دکمه نشانه‌گذاری
-         
-        ],
+       
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(6.0),
           child: TweenAnimationBuilder<double>(

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:azmoonak_app/helpers/adaptive_text_size.dart'; // Import the new helper
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
 import 'package:azmoonak_app/models/quiz_attempt.dart';
 import 'package:azmoonak_app/screens/profile_screen.dart';
@@ -23,50 +24,103 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
+
 class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   final HiveService _hiveService = HiveService();
-  
+
   List<Category> _categories = [];
   bool _isLoading = true;
   bool _isSyncing = false;
   String _errorMessage = '';
 
+  // --- پالت رنگی جدید (Teal) ---
+  static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
+  static const Color lightTeal = Color(0xFF4DB6AC); // Teal روشن‌تر
+  static const Color darkTeal = Color(0xFF004D40); // Teal تیره‌تر
+  static const Color accentYellow = Color(0xFFFFD700); // زرد تاکید (برای ستاره)
+  static const Color textDark = Color(0xFF212121); // متن تیره
+  static const Color textMedium = Color(0xFF607D8B); // متن متوسط
+  static const Color backgroundLight = Color(0xFFF8F9FA); // پس‌زمینه روشن
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
+    _syncAllPremiumContent(showSuccessMessage: false);
   }
 
-   Future<void> _loadInitialData() async {
+  // Helper to get responsive sizes based on screen width
+  double _getResponsiveSize(BuildContext context, double baseSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Adjust this multiplier as needed for different screen sizes
+    return baseSize * (screenWidth / 375.0); // Assuming 375 is a common base width (e.g., iPhone 8)
+  }
+// --- تابع اصلی و بازنویسی شده برای Offline-First ---
+  // Future<void> _loadInitialData() async {
+  //   if (!mounted) return;
+  //   setState(() { _isLoading = true; _errorMessage = ''; });
+
+  //   try {
+  //     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      
+  //     // ۱. همیشه ابتدا اطلاعات کاربر را رفرش می‌کنیم
+  //     await authProvider.refreshUser();
+      
+  //     final user = authProvider.user;
+  //     if (user == null) throw Exception('کاربر یافت نشد.');
+      
+  //     // ۲. همیشه و اول از همه، از دیتابیس محلی (Hive) می‌خوانیم
+  //     final localCategories = await _hiveService.getCategories(user.id);
+  //     if (mounted) {
+  //       setState(() { _categories = localCategories; });
+  //     }
+
+  //     // ۳. حالا وضعیت اینترنت را برای به‌روزرسانی در پس‌زمینه چک می‌کنیم
+  //     final connectivityResult = await (Connectivity().checkConnectivity());
+  //     if (connectivityResult != ConnectivityResult.none) {
+  //       // اگر آنلاین بودیم، داده‌ها را از سرور می‌گیریم
+  //       final onlineCategories = await _apiService.fetchCategories(authProvider.token!);
+  //       if (mounted) {
+  //         setState(() { _categories = onlineCategories; _errorMessage = ''; });
+  //       }
+        
+  //       // اگر کاربر Premium بود، داده‌های جدید را در Hive هم ذخیره می‌کنیم
+  //       // این یک همگام‌سازی سبک فقط برای دسته‌بندی‌هاست
+  //       if (user.isPremium) {
+  //         await _hiveService.syncData('categories', onlineCategories, user.id);
+  //       }
+  //     } else {
+  //       // اگر آفلاین بودیم و دیتابیس محلی هم خالی بود، پیام خطا می‌دهیم
+  //       if (localCategories.isEmpty) {
+  //         setState(() { _errorMessage = 'شما آفلاین هستید و هیچ داده‌ای برای نمایش وجود ندارد.'; });
+  //       }
+  //     }
+  //   } catch (e) {
+  //     if (mounted) setState(() { _errorMessage = e.toString().replaceAll("Exception: ", ""); });
+  //   } finally {
+  //     if (mounted) setState(() { _isLoading = false; });
+  //   }
+  // }
+  Future<void> _loadInitialData() async {
     if (!mounted) return;
     setState(() { _isLoading = true; _errorMessage = ''; });
-
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
-      // ۱. همیشه اطلاعات کاربر را از سرور رفرش کن
       await authProvider.refreshUser();
       
       final user = authProvider.user;
       final token = authProvider.token;
-
+      
       if (user != null && token != null) {
-        // ۲. بر اساس وضعیت کاربر، داده‌های دوره‌ها را بارگذاری کن
+        await _syncOfflineAttempts(userId: user.id, token: token);
         if (user.isPremium) {
-          // برای کاربر Premium، ابتدا از دیتابیس محلی بخوان
-          final localCategories = await _hiveService.getCategories(user.id);
-          if (mounted) setState(() { _categories = localCategories; });
-          
-          // سپس در پس‌زمینه، همگام‌سازی را شروع کن
-          _syncAllPremiumContent(showSuccessMessage: localCategories.isEmpty);
+          await _loadPremiumUserData(userId: user.id, token: token);
         } else {
-          // برای کاربر رایگان، همیشه از سرور آنلاین بخوان
-          final onlineCategories = await _apiService.fetchCategories(token);
-          if (mounted) setState(() { _categories = onlineCategories; });
+          await _loadFreeUserData(token);
         }
       } else {
-        if (mounted) setState(() { _categories = []; });
+        setState(() { _categories = []; });
       }
     } catch (e) {
       if (mounted) setState(() { _errorMessage = e.toString().replaceAll("Exception: ", ""); });
@@ -74,28 +128,26 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() { _isLoading = false; });
     }
   }
-   Future<void> _loadPremiumUserData({required String userId, required String token}) async {
+
+  Future<void> _loadPremiumUserData({required String userId, required String token}) async {
     final localCategories = await _hiveService.getCategories(userId);
     if (mounted && localCategories.isNotEmpty) {
       setState(() { _categories = localCategories; });
     } else if (mounted) {
-      // اگر دیتابیس محلی خالی بود، یک بار از سرور بگیر و به کاربر بگو دانلود کند
       final onlineCategories = await _apiService.fetchCategories(token);
       setState(() {
         _categories = onlineCategories;
-        if (localCategories.isEmpty) { // فقط بار اول این پیام را نشان بده
-          _errorMessage = 'برای استفاده آفلاین، لطفا داده‌ها را همگام‌سازی کنید.';
-        }
+        if (localCategories.isEmpty) _errorMessage = 'برای استفاده آفلاین، لطفا داده‌ها را همگام‌سازی کنید.';
       });
     }
   }
-   Future<void> _loadFreeUserData(String token) async {
+
+  Future<void> _loadFreeUserData(String token) async {
     final onlineCategories = await _apiService.fetchCategories(token);
     if (mounted) setState(() { _categories = onlineCategories; });
   }
 
-  // --- توابع همگام‌سازی ---
- Future<void> _syncAllPremiumContent({bool showSuccessMessage = true}) async {
+  Future<void> _syncAllPremiumContent({bool showSuccessMessage = true}) async {
     if (_isSyncing) return;
     
     final connectivityResult = await (Connectivity().checkConnectivity());
@@ -107,423 +159,562 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.user;
     final token = authProvider.token;
-    if (user == null || token == null) return;
+    if (user == null || token == null || !user.isPremium) return;
 
-    if (mounted) setState(() { _isSyncing = true; });
-    try {
-      final onlineCategories = await _apiService.fetchCategories(token);
-      await _hiveService.syncData<Category>('categories', onlineCategories, user.id);
-      
-      List<Course> allCourses = [];
-      List<Question> allQuestions = [];
-      for (var cat in onlineCategories) {
-        final courses = await _apiService.fetchCoursesByCategory(cat.id, token);
-        allCourses.addAll(courses);
-        for (var course in courses) {
-          final questions = await _apiService.fetchAllQuestionsForCourse(course.id, token);
-          allQuestions.addAll(questions);
-        }
-      }
-      await _hiveService.syncData<Course>('courses', allCourses, user.id);
-      await _hiveService.syncData<Question>('questions', allQuestions, user.id);
+    setState(() { _isSyncing = true; });
+   try {
+    // ۱. ابتدا تمام داده‌ها را از سرور در لیست‌های موقت جمع‌آوری کن
+    final onlineCategories = await _apiService.fetchCategories(token!);
+    
+    List<Course> allCourses = [];
+    List<Question> allQuestions = [];
 
-      final latestCategories = await _hiveService.getCategories(user.id);
-      if (mounted) {
-        setState(() { _categories = latestCategories; _errorMessage = ''; });
-        if(showSuccessMessage) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تمام محتوا با موفقیت همگام‌سازی شد!')));
-        }
+    for (var cat in onlineCategories) {
+      final courses = await _apiService.fetchCoursesByCategory(cat.id, token);
+      allCourses.addAll(courses);
+      for (var course in courses) {
+        final questions = await _apiService.fetchAllQuestionsForCourse(course.id, token);
+        allQuestions.addAll(questions);
       }
-    } catch (e) {
-      print("Sync Error: $e");
-      if(mounted && showSuccessMessage) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا در همگام‌سازی: $e')));
-    } finally {
-      if (mounted) setState(() { _isSyncing = false; });
     }
+
+    // ۲. حالا که تمام داده‌ها را داریم، آنها را یکجا در Hive ذخیره کن
+    // (syncData به صورت خودکار داده‌های قدیمی را پاک می‌کند)
+    await _hiveService.syncData<Category>('categories', onlineCategories, user!.id);
+    await _hiveService.syncData<Course>('courses', allCourses, user.id);
+    await _hiveService.syncData<Question>('questions', allQuestions, user.id);
+
+    // ۳. ابزار دیباگ ما برای تایید
+    await _hiveService.debugHive(user.id);
+
+    // ۴. UI را با داده‌های جدید آپدیت کن
+    final latestCategories = await _hiveService.getCategories(user.id);
+    if (mounted) {
+      setState(() { _categories = latestCategories; _errorMessage = ''; });
+      if (showSuccessMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('همگام‌سازی کامل با موفقیت انجام شد!')));
+      }
+    }
+  } catch (e) {
+    print("Sync Error: $e");
+  } finally {
+    if (mounted) setState(() { _isSyncing = false; });
   }
-  // Future<void> _syncOfflineAttempts() async {
-  //   final connectivityResult = await (Connectivity().checkConnectivity());
-  //   if (connectivityResult == ConnectivityResult.none) return;
-    
-  //   // final token = Provider.of<AuthProvider>(context, listen: false).token;
-  //   // if (token == null) return;
-    
-  //   // final unsyncedAttempts = await _hiveService.getUnsyncedAttempts();
-  //   // if (unsyncedAttempts.isEmpty) return;
-    
-  //   // print("Syncing ${unsyncedAttempts.length} offline quiz results...");
-  //   // for (var attempt in unsyncedAttempts) {
-  //   //   try {
-  //   //     // await _apiService.submitOfflineAttempt(attempt, token);
-  //   //     await _hiveService.markAttemptAsSynced(attempt);
-  //   //   } catch (e) {
-  //   //     print("Failed to sync attempt ${attempt.id}: $e");
-  //   //   }
-  //   // }
-  // }
- void _startTrialQuiz() async {
+}
+
+  Future<void> _syncOfflineAttempts({required String userId, required String token}) async {
+    // این تابع برای آینده است و فعلا منطق پیچیده‌ای ندارد
+  }
+  
+
+  void _startTrialQuiz() async {
     showDialog(context: context, builder: (_) => const Center(child: CircularProgressIndicator()));
     try {
       final trialQuestions = await _hiveService.getTrialQuestions();
-      if(mounted) Navigator.of(context).pop();
-      
+      if (mounted) Navigator.of(context).pop();
+
       if (trialQuestions.isNotEmpty) {
-          Navigator.of(context).push(
-              MaterialPageRoute(builder: (ctx) => TrialQuizScreen(questions: trialQuestions))
-          );
+        Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => TrialQuizScreen(questions: trialQuestions)));
       } else {
-          throw Exception('سوالات آزمایشی یافت نشد. لطفا به اینترنت متصل شوید و برنامه را دوباره باز کنید.');
+        throw Exception('سوالات آزمایشی یافت نشد. لطفا به اینترنت متصل شوید و برنامه را دوباره باز کنید.');
       }
     } catch (e) {
-      if(mounted) Navigator.of(context).pop();
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll("Exception: ", ""))));
+      if (mounted) Navigator.of(context).pop();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll("Exception: ", ""))));
     }
   }
-   Future<void> _loadFromLocalDb(String userId) async {
+
+  Future<void> _loadFromLocalDb(String userId) async {
     final localCategories = await _hiveService.getCategories(userId);
     if (mounted) {
-      setState(() { _categories = localCategories; _errorMessage = ''; });
+      setState(() {
+        _categories = localCategories;
+        _errorMessage = '';
+      });
     }
   }
+
   @override
   Widget build(BuildContext context) {
-    
-    return Consumer<AuthProvider>(
-    builder: (context, authProvider, child) {
-      
-      final authProvider = Provider.of<AuthProvider>(context);
-       final user = authProvider.user;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Consumer<AuthProvider>(builder: (context, authProvider, child) {
+      final user = authProvider.user;
       final profileImageFile = user?.profileImagePath != null ? File(user!.profileImagePath!) : null;
 
-      const tealColor = Color(0xFF008080);
       return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const TestSetupScreen())),
-        label: const Text('ساخت آزمون سفارشی', style: TextStyle(color: Colors.white),),
-        icon: const Icon(Icons.add_circle_outline, color:  Colors.white,),
-        backgroundColor: tealColor,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadInitialData,
-        child: CustomScrollView(
-          slivers: [
-            
-      if (!widget.isPickerMode)
-                  SliverAppBar(
-                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                     
-                    floating: true, // با اسکرول به بالا، بلافاصله ظاهر می‌شود
-                    elevation: 0,
-                   
-                    actions: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 0.0),
-                        child: GestureDetector(
-                          onTap: () {
-                            // پیدا کردن آبجکت MainScreenState و تغییر تب به پروفایل
-                            // این روش نیازمند این است که MainScreen State خود را expose کند
-                            // یا از یک State Management بهتر مثل Riverpod استفاده کنیم.
-                            // فعلا به صورت مستقیم به صفحه پروفایل می‌رویم.
-                            Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const ProfileScreen()));
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: CircleAvatar(
-                              radius: 35,
-                              backgroundImage: profileImageFile != null ? FileImage(profileImageFile) : null,
-                              child: profileImageFile == null 
-                                  ? Text(user?.name.isNotEmpty == true ? user!.name.substring(0, 1) : 'U', style: const TextStyle(fontSize: 20))
-                                  : null,
-                            ),
+        backgroundColor: backgroundLight,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const TestSetupScreen())),
+          label: AdaptiveTextSize(
+            text: 'ساخت آزمون سفارشی',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Vazirmatn', fontSize: 16),
+          ),
+          icon: Icon(Icons.add_circle_outline, color: Colors.white, size: _getResponsiveSize(context, 24)),
+          backgroundColor: primaryTeal,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 30))),
+          elevation: 6,
+        ),
+        body: RefreshIndicator(
+          onRefresh: _loadInitialData,
+          color: primaryTeal,
+          child: CustomScrollView(
+            slivers: [
+              // Custom Header with Wave Shape (Teal Gradient)
+              if (!widget.isPickerMode)
+              
+                SliverToBoxAdapter(
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: screenHeight * 0.25, // Responsive height for header
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [primaryTeal, lightTeal.withOpacity(0.8)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
                           ),
+                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(_getResponsiveSize(context, 30))),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(
+                          top: _getResponsiveSize(context, 40.0),
+                          left: _getResponsiveSize(context, 16.0),
+                          right: _getResponsiveSize(context, 16.0),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const ProfileScreen()));
+                                  },
+                                  child: Hero(
+                                    tag: 'profileImage',
+                                    child: CircleAvatar(
+                                      radius: _getResponsiveSize(context, 24),
+                                      backgroundColor: Colors.white.withOpacity(0.3),
+                                      backgroundImage: profileImageFile != null ? FileImage(profileImageFile) : null,
+                                      child: profileImageFile == null
+                                          ? AdaptiveTextSize(
+                                              text: user?.name.isNotEmpty == true ? user!.name.substring(0, 1) : 'U',
+                                              style: TextStyle(
+                                                  fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                                AdaptiveTextSize(
+                                  text: "آزمونک",
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontFamily: 'Vazirmatn',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: _getResponsiveSize(context, 30)),
+                            AdaptiveTextSize(
+                              text: 'سلام،',
+                              style: TextStyle(
+                                  fontSize: 20, color: Colors.white.withOpacity(0.9), fontFamily: 'Vazirmatn'),
+                            ),
+                            AdaptiveTextSize(
+                              text: user?.name ?? 'کاربر گرامی',
+                              style: TextStyle(
+                                  fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Vazirmatn'),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                 SliverToBoxAdapter(
-                  child: Padding(padding: EdgeInsets.symmetric(horizontal: 16),
-                  
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 10,),
-                        const Text('سلام، خوش آمدید! ', style: TextStyle(fontSize: 18, color: Colors.grey, ), textDirection: TextDirection.rtl, textAlign: TextAlign.center,),
-                        Text(user?.name ?? 'کاربر گرامی', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    
-                    ],
+                ),
+
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  _getResponsiveSize(context, 16.0),
+                  _getResponsiveSize(context, 20.0),
+                  _getResponsiveSize(context, 16.0),
+                  _getResponsiveSize(context, 8.0),
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: _buildSubscriptionCard(context, user?.isPremium ?? false, user?.subscriptionExpiresAt),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(
+                    horizontal: _getResponsiveSize(context, 16.0), vertical: _getResponsiveSize(context, 8.0)),
+                sliver: SliverToBoxAdapter(
+                  child: _buildQuickStatsSection(),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(
+                    horizontal: _getResponsiveSize(context, 16.0), vertical: _getResponsiveSize(context, 8.0)),
+                sliver: SliverToBoxAdapter(
+                  child: _buildTrialQuizCard(),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    _getResponsiveSize(context, 16.0),
+                    _getResponsiveSize(context, 32.0),
+                    _getResponsiveSize(context, 16.0),
+                    _getResponsiveSize(context, 16.0),
                   ),
-                  )
-                 ),
-                 if (user != null && !widget.isPickerMode)
-      SliverToBoxAdapter(child: Padding(
-       padding: const EdgeInsets.all(16.0),
-        child: _buildSubscriptionCard(context,user.isPremium, user.subscriptionExpiresAt),
-      )),
-            SliverToBoxAdapter(child: Padding(
-             padding: const EdgeInsets.symmetric( horizontal: 16.0),
-              child: _buildQuickStatsSection(),
-            )),
-       
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child:  _buildTrialQuizCard(),
-              ),
-            ),
-            // -----------------------------
-
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
-                child: Text('دسته‌بندی‌های اصلی', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-            ),
-            
-            _isLoading
-              ? const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator())))
-              : _errorMessage.isNotEmpty
-                ? SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Text(_errorMessage, textAlign: TextAlign.center))))
-                : SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0),
-                  
-                    sliver: SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2, // ۲ ستون در موبایل
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.2, // نسبت عرض به ارتفاع کارت‌ها
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          return _buildCategoryCard(_categories[index]);
-                        },
-                        childCount: _categories.length,
-                      ),
-                    ),
-                    // ------------------------------------
-                  ),
-          ],
-        ),
-      ),
-      );
-  });
-  }
-
-   Widget _buildSubscriptionCard(BuildContext context, bool isPremium,DateTime? expiryDate) {
-     if (isPremium && expiryDate != null) {
-         return _buildPremiumStatusCard(expiryDate);
-    } else {
-          return _buildPremiumCallToAction(context);
-      }
-   }
-     Widget _buildPremiumStatusCard(DateTime expiryDate) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Card(
-        color: Colors.green.shade50,
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green),
-                  SizedBox(width: 8),
-                  Text('شما عضو ویژه هستید', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text('زمان باقی‌مانده از اشتراک شما:', textDirection: TextDirection.rtl,),
-              const SizedBox(height: 8),
-              
-              // --- تایمر معکوس زنده ---
-              TimerBuilder.periodic(
-                const Duration(seconds: 1),
-                builder: (context) {
-                  final now = DateTime.now();
-                  final remaining = expiryDate.difference(now);
-
-                  if (remaining.isNegative) {
-                    // اگر زمان تمام شده بود، به کاربر اطلاع بده و صفحه را رفرش کن
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _loadInitialData(); // رفرش کردن وضعیت برای تبدیل به کاربر رایگان
-                    });
-                    return const Text('اشتراک شما به پایان رسیده است.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red));
-                  }
-
-                  final days = remaining.inDays;
-                  final hours = remaining.inHours % 24;
-                  final minutes = remaining.inMinutes % 60;
-                  final seconds = remaining.inSeconds % 60;
-                  
-                  return Text(
-                    '$days روز و $hours ساعت و $minutes دقیقه و $seconds ثانیه',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'monospace', // برای نمایش بهتر اعداد
-                      color: Color(0xFF004D40),
-                    ),
-                    textDirection: TextDirection.rtl,
-                  );
-                },
-              )
-        ]  )
-          )
-          )
-          );
-
-     }
-   Widget _buildPremiumCallToAction(BuildContext context) {
-     return Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PremiumScreen())),
-          child: const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Icon(Icons.star_rounded, color: Colors.amber, size: 32),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('عضویت ویژه', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text('دسترسی نامحدود', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    ],
+                  child: AdaptiveTextSize(
+                    text: 'دسته‌بندی‌های اصلی',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark, fontFamily: 'Vazirmatn'),
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
-              ],
-            ),
+              ),
+
+              _isLoading
+                  ? SliverToBoxAdapter(
+                      child: Center(
+                          child: Padding(
+                              padding: EdgeInsets.all(_getResponsiveSize(context, 32.0)),
+                              child: CircularProgressIndicator(color: primaryTeal))))
+                  : _errorMessage.isNotEmpty
+                      ? SliverToBoxAdapter(
+                          child: Center(
+                              child: Padding(
+                                  padding: EdgeInsets.all(_getResponsiveSize(context, 32.0)),
+                                  child: AdaptiveTextSize(
+                                      text: _errorMessage,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.red.shade700, fontFamily: 'Vazirmatn')))))
+                      : SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            _getResponsiveSize(context, 16.0),
+                            _getResponsiveSize(context, 8.0),
+                            _getResponsiveSize(context, 16.0),
+                            _getResponsiveSize(context, 80.0),
+                          ),
+                          sliver: SliverGrid(
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: screenWidth > 600 ? 3 : 2, // 3 columns for wider screens
+                              crossAxisSpacing: _getResponsiveSize(context, 16),
+                              mainAxisSpacing: _getResponsiveSize(context, 16),
+                              childAspectRatio: screenWidth > 600 ? 1.2 : 1.0, // Adjust aspect ratio for wider screens
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                return _buildCategoryCard(_categories[index]);
+                              },
+                              childCount: _categories.length,
+                            ),
+                          ),
+                        ),
+            ],
           ),
         ),
       );
-   }
-   Widget _buildCategoryCard(Category category) {
-    const tealColor = Color(0xFF008080);
+    });
+  }
+
+  Widget _buildSubscriptionCard(BuildContext context, bool isPremium, DateTime? expiryDate) {
+    if (isPremium && expiryDate != null) {
+      return _buildPremiumStatusCard(expiryDate);
+    } else {
+      return _buildPremiumCallToAction(context);
+    }
+  }
+
+  Widget _buildPremiumStatusCard(DateTime expiryDate) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
+      child: Container(
+        padding: EdgeInsets.all(_getResponsiveSize(context, 20.0)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
+          gradient: LinearGradient(
+            colors: [lightTeal.withOpacity(0.1), backgroundLight],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Icon(Icons.workspace_premium_rounded, color: primaryTeal, size: _getResponsiveSize(context, 30)),
+                SizedBox(width: _getResponsiveSize(context, 10)),
+                AdaptiveTextSize(
+                  text: 'شما عضو ویژه هستید',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: primaryTeal, fontSize: 17, fontFamily: 'Vazirmatn'),
+                ),
+              ],
+            ),
+            SizedBox(height: _getResponsiveSize(context, 16)),
+            AdaptiveTextSize(
+              text: 'زمان باقی‌مانده از اشتراک شما:',
+              
+              style: TextStyle(color: textMedium, fontSize: 13, fontFamily: 'Vazirmatn'),
+            ),
+            SizedBox(height: _getResponsiveSize(context, 10)),
+            TimerBuilder.periodic(
+              const Duration(seconds: 1),
+              builder: (context) {
+                final now = DateTime.now();
+                final remaining = expiryDate.difference(now);
+
+                if (remaining.isNegative) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _loadInitialData();
+                  });
+                  return AdaptiveTextSize(
+                    text: 'اشتراک شما به پایان رسیده است.',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontFamily: 'Vazirmatn', fontSize: 16),
+                  );
+                }
+
+                final days = remaining.inDays;
+                final hours = remaining.inHours % 24;
+                final minutes = remaining.inMinutes % 60;
+                final seconds = remaining.inSeconds % 60;
+
+                return AdaptiveTextSize(
+                  text: '$days روز و $hours ساعت و $minutes دقیقه و $seconds ثانیه',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Vazirmatn',
+                    color: darkTeal,
+                    
+                  ),
+                 
+                );
+              },
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumCallToAction(BuildContext context) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PremiumScreen())),
+        child: Container(
+          padding: EdgeInsets.all(_getResponsiveSize(context, 20.0)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
+            gradient: LinearGradient(
+              colors: [accentYellow.withOpacity(0.1), Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.star_rounded, color: accentYellow, size: _getResponsiveSize(context, 36)),
+              SizedBox(width: _getResponsiveSize(context, 16)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AdaptiveTextSize(
+                      text: 'عضویت ویژه',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark, fontFamily: 'Vazirmatn'),
+                    ),
+                    AdaptiveTextSize(
+                      text: 'دسترسی نامحدود به تمامی امکانات',
+                      style: TextStyle(color: textMedium, fontSize: 14, fontFamily: 'Vazirmatn'),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded, color: textMedium.withOpacity(0.7), size: _getResponsiveSize(context, 20)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(Category category) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
         onTap: () async {
-          // استفاده صحیح از Navigator.push
           final List<Course>? result = await Navigator.of(context).push<List<Course>>(
             MaterialPageRoute(
-              builder: (ctx) => CourseListScreen(
-                category: category, 
-                isPickerMode: widget.isPickerMode
-              ),
+              builder: (ctx) => CourseListScreen(category: category, isPickerMode: widget.isPickerMode),
             ),
           );
-          
+
           if (widget.isPickerMode && result != null && result.isNotEmpty) {
             Navigator.of(context).pop(result);
           }
         },
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: tealColor.withOpacity(0.1),
-                child: const Icon(Icons.school_rounded, color: tealColor, size: 28),
+              Container(
+                padding: EdgeInsets.all(_getResponsiveSize(context, 15)),
+                decoration: BoxDecoration(
+                  color: primaryTeal.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.school_rounded, color: primaryTeal, size: _getResponsiveSize(context, 40)),
               ),
-              const SizedBox(height: 12),
-              Text(category.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), textAlign: TextAlign.center),
+              SizedBox(height: _getResponsiveSize(context, 18)),
+              AdaptiveTextSize(
+                text: category.name,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textDark, fontFamily: 'Vazirmatn'),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
       ),
     );
-   }
-    Widget _buildTrialQuizCard() {
-     return Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: _startTrialQuiz,
-          child: const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Icon(Icons.quiz_rounded, color: Color(0xFF008080), size: 32),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('آزمون آمادگی', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text('با ۱۰ سوال رایگان خود را بسنجید', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
-              ],
+  }
+
+  Widget _buildTrialQuizCard() {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
+        onTap: _startTrialQuiz,
+        child: Container(
+          padding: EdgeInsets.all(_getResponsiveSize(context, 20.0)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
+            gradient: LinearGradient(
+              colors: [lightTeal.withOpacity(0.1), Colors.white],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
             ),
           ),
+          child: Row(
+            children: [
+              Icon(Icons.quiz_rounded, color: primaryTeal, size: _getResponsiveSize(context, 36)),
+              SizedBox(width: _getResponsiveSize(context, 16)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AdaptiveTextSize(
+                      text: 'آزمون آمادگی رایگان',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark, fontFamily: 'Vazirmatn'),
+                    ),
+                    AdaptiveTextSize(
+                      text: 'با ۱۰ سوال رایگان خود را بسنجید',
+                      style: TextStyle(color: textMedium, fontSize: 14, fontFamily: 'Vazirmatn'),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded, color: textMedium.withOpacity(0.7), size: _getResponsiveSize(context, 20)),
+            ],
+          ),
         ),
-      );
+      ),
+    );
+  }
 
-
-    }
-     Widget _buildQuickStatsSection() {
-      final user = Provider.of<AuthProvider>(context, listen: false).user;
+  Widget _buildQuickStatsSection() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user == null) return const SizedBox.shrink();
     return FutureBuilder<List<QuizAttempt>>(
       future: _hiveService.getQuizHistory(user.id),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink(); // اگر داده‌ای نبود، چیزی نشان نده
+          return const SizedBox.shrink();
         }
         final history = snapshot.data!;
         final totalTests = history.length;
         final averageScore = history.map((h) => h.percentage).reduce((a, b) => a + b) / totalTests;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            children: [
-              Expanded(child: _buildStatCard('تعداد آزمون', totalTests.toString(), Icons.playlist_add_check_rounded, Colors.orange)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard('میانگین نمره', '${averageScore.toStringAsFixed(0)}%', Icons.show_chart_rounded, Colors.green)),
-            ],
-          ),
+        return Row(
+          children: [
+            Expanded(
+                child: _buildStatCard(
+                    'تعداد آزمون‌ها', totalTests.toString(), Icons.fact_check_rounded, Colors.orange.shade700)),
+            SizedBox(width: _getResponsiveSize(context, 16)),
+            Expanded(
+                child: _buildStatCard(
+                    'میانگین نمره', '${averageScore.toStringAsFixed(0)}%', Icons.analytics_outlined, Colors.green.shade700)),
+          ],
         );
-      }
+      },
     );
-    
-   }
-   
+  }
+
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Card(
-      elevation: 0,
-      color: color.withOpacity(0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
+      color: Colors.white,
+      child: Container(
+        padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.05), Colors.white],
+            begin: Alignment.bottomLeft,
+            end: Alignment.topRight,
+          ),
+        ),
         child: Row(
           children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(title, style: const TextStyle(color: Colors.black54, fontSize: 12)),
-              ],
+            Container(
+              padding: EdgeInsets.all(_getResponsiveSize(context, 10)),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(_getResponsiveSize(context, 15)),
+              ),
+              child: Icon(icon, size: _getResponsiveSize(context, 30), color: color),
+            ),
+            SizedBox(width: _getResponsiveSize(context, 12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AdaptiveTextSize(
+                    text: value,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark),
+                  ),
+                  AdaptiveTextSize(
+                    text: title,
+                    style: TextStyle(color: textMedium, fontSize: 13, fontFamily: 'Vazirmatn'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
-}}
+  }
+}

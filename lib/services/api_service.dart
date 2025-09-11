@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // آدرس سرور شما. اگر از شبیه‌ساز اندروید استفاده می‌کنید، این آدرس درست است.
   // برای شبیه‌ساز iOS یا گوشی واقعی، IP کامپیوتر خود را جایگزین 10.0.2.2 کنید.
-  static const String _baseUrl = "http://192.168.137.1:5000/api";
+  static const String _baseUrl = "http://143.20.64.200/api";
   
    Future<List<Question>> fetchAllQuestionsForCourse(String courseId, String token) async {
         final response = await http.get(

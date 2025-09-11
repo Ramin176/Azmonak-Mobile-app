@@ -7,14 +7,14 @@ import 'package:azmoonak_app/models/quiz_attempt.dart';
 import 'package:azmoonak_app/models/settings.dart';
 import 'package:azmoonak_app/models/user.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/splash_screen.dart';
 import 'models/attempt_question.dart';
-import 'models/settings.dart';
-import 'package:flutter_localization/flutter_localization.dart';
+
 void main() async{
    WidgetsFlutterBinding.ensureInitialized(); 
   await Hive.initFlutter();
@@ -31,12 +31,11 @@ void main() async{
   await Hive.openBox<Question>('trial_questions');
   await Hive.openBox<AppSettings>('settings');
    await initializeDateFormatting('fa', null); 
-  runApp(const AzmoonakApp());
+  runApp( AzmoonakApp());
 }
 
 class AzmoonakApp extends StatelessWidget {
-  const AzmoonakApp({super.key});
-  
+   
   @override
   Widget build(BuildContext context) {
     // تعریف رنگ اصلی Teal
@@ -47,19 +46,21 @@ class AzmoonakApp extends StatelessWidget {
       create: (ctx) => AuthProvider(),
       child: MaterialApp(
         title: 'آزمونک',
-      //    onGenerateTitle: (context) {
-      //   // عنوان اپ را از فایل ترجمه بخوان
-      //   // return AppLocalizations.of(context)!.appName;
-      // },
-      //   localizationsDelegates: AppLocalizations.localizationsDelegates,
-      // supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('fa'),
+    locale: const Locale('fa'),
+        supportedLocales: const [
+          Locale('fa'), // فقط فارسی
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         // --- تعریف تم سراسری ---
         theme: ThemeData(
           primaryColor: tealColor,
           scaffoldBackgroundColor: backgroundColor,
           fontFamily: 'Vazir', // مطمئن شوید فونت را اضافه کرده‌اید
-
+      
           // استایل AppBar
           appBarTheme: const AppBarTheme(
             backgroundColor: backgroundColor,
@@ -67,7 +68,7 @@ class AzmoonakApp extends StatelessWidget {
             elevation: 0,
             centerTitle: true,
           ),
-
+      
           // استایل دکمه‌های اصلی
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
@@ -80,14 +81,14 @@ class AzmoonakApp extends StatelessWidget {
               textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Vazir'),
             ),
           ),
-
+      
           // استایل کارت‌ها
           cardTheme: CardTheme(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             margin: const EdgeInsets.symmetric(vertical: 8),
           ),
-
+      
          
           inputDecorationTheme: InputDecorationTheme(
             border: OutlineInputBorder(

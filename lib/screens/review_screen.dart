@@ -14,12 +14,26 @@ class ReviewScreen extends StatelessWidget {
     required this.questions, 
     required this.userAnswers
   });
-
+  static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
+  // Helper to get responsive sizes based on screen width
+  double _getResponsiveSize(BuildContext context, double baseSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Adjust this multiplier as needed for different screen sizes
+    return baseSize * (screenWidth / 375.0); // Assuming 375 is a common base width (e.g., iPhone 8)
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مرور آزمون'),
+         backgroundColor: primaryTeal,
+        elevation: 0,
+        centerTitle: true,
+        title:  Text('مرور آزمون',  style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Vazirmatn',
+            fontSize: _getResponsiveSize(context, 20),
+          ),),
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16.0),

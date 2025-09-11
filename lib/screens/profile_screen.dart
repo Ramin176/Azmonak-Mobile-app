@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math'; // برای استفاده از تابع min
+import 'package:azmoonak_app/helpers/adaptive_text_size.dart'; // Import the new helper
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +12,7 @@ import 'login_screen.dart';
 import 'premium_screen.dart';
 import 'review_screen.dart';
 import 'edit_profile_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
   @override
@@ -21,18 +23,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late Future<List<QuizAttempt>> _historyFuture;
   final HiveService _hiveService = HiveService();
 
+  // --- پالت رنگی جدید (Teal) - همانند HomeScreen ---
+  static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
+  static const Color lightTeal = Color(0xFF4DB6AC); // Teal روشن‌تر
+  static const Color darkTeal = Color(0xFF004D40); // Teal تیره‌تر
+  static const Color accentYellow = Color(0xFFFFD700); // زرد تاکید (برای ستاره)
+  static const Color textDark = Color(0xFF212121); // متن تیره
+  static const Color textMedium = Color(0xFF607D8B); // متن متوسط
+  static const Color backgroundLight = Color(0xFFF8F9FA); // پس‌زمینه روشن
+
+  // Helper to get responsive sizes based on screen width
+  double _getResponsiveSize(BuildContext context, double baseSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Adjust this multiplier as needed for different screen sizes
+    return baseSize * (screenWidth / 375.0); // Assuming 375 is a common base width (e.g., iPhone 8)
+  }
+
   @override
   void initState() {
     super.initState();
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-     if (user != null) {
+    if (user != null) {
       _historyFuture = _hiveService.getQuizHistory(user.id);
     } else {
       _historyFuture = Future.value([]);
     }
   }
 
-   Future<void> _refreshData() async {
+  Future<void> _refreshData() async {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     await Provider.of<AuthProvider>(context, listen: false).refreshUser();
     if (user != null) {
@@ -43,29 +61,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _navigateToReviewScreen(String attemptId) async {
-     final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     try {
       showDialog(context: context, builder: (_) => const Center(child: CircularProgressIndicator()));
       if (user == null) return;
-     final details = await _hiveService.getAttemptDetails(attemptId, user.id);
+      final details = await _hiveService.getAttemptDetails(attemptId, user.id);
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
       if (details == null) {
-          if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جزئیات این آزمون برای مرور یافت نشد.')));
-          return;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: AdaptiveTextSize(text: 'جزئیات این آزمون برای مرور یافت نشد.', style: TextStyle(color: Colors.white, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 14)))));
+        }
+        return;
       }
-      if(mounted) {
-          Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (ctx) => ReviewScreen(
-                      questions: details.questions,
-                      userAnswers: details.userAnswers,
-                  ),
-              ),
-          );
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (ctx) => ReviewScreen(
+              questions: details.questions,
+              userAnswers: details.userAnswers,
+            ),
+          ),
+        );
       }
     } catch (e) {
-        if (mounted) Navigator.of(context, rootNavigator: true).pop();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا: ${e.toString()}')));
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: AdaptiveTextSize(text: 'خطا: ${e.toString()}', style: TextStyle(color: Colors.white, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 14)))));
+      }
     }
   }
 
@@ -73,43 +97,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('قابلیت ویژه'),
-        content: const Text('مرور سوالات آزمون‌های قبلی یک قابلیت ویژه برای اعضای Premium است.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 15))),
+        title: AdaptiveTextSize(
+          text: 'قابلیت ویژه',
+          style: TextStyle(fontWeight: FontWeight.bold, color: primaryTeal, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 18)),
+        ),
+        content: AdaptiveTextSize(
+          text: 'مرور سوالات آزمون‌های قبلی یک قابلیت ویژه برای اعضای Premium است.',
+          style: TextStyle(color: textDark, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 15)),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('انصراف')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: AdaptiveTextSize(
+              text: 'انصراف',
+              style: TextStyle(color: textMedium, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 14)),
+            ),
+          ),
           ElevatedButton(
-            child: const Text('عضویت ویژه شو!'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryTeal,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 10))),
+            ),
             onPressed: () {
               Navigator.of(ctx).pop();
               Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PremiumScreen()));
             },
+            child: AdaptiveTextSize(
+              text: 'عضویت ویژه شو!',
+              style: TextStyle(color: Colors.white, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 14)),
+            ),
           ),
         ],
       ),
     );
   }
-  
-  void _handleReviewTap(QuizAttempt attempt) {
-      final user = Provider.of<AuthProvider>(context, listen: false).user;
-      if (user != null && user.isPremium) {
-        _navigateToReviewScreen(attempt.id);
-      } else {
-        _showPremiumPrompt();
-      }
-  }
 
+  void _handleReviewTap(QuizAttempt attempt) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (user != null && user.isPremium) {
+      _navigateToReviewScreen(attempt.id);
+    } else {
+      _showPremiumPrompt();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     final profileImageFile = user?.profileImagePath != null ? File(user!.profileImagePath!) : null;
+
     return Scaffold(
+      backgroundColor: backgroundLight,
       appBar: AppBar(
-        title: const Text('پروفایل و پیشرفت'),
+        title: AdaptiveTextSize(
+          text: 'پروفایل و پیشرفت',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Vazirmatn',
+            fontSize: _getResponsiveSize(context, 20),
+          ),
+        ),
+        backgroundColor: primaryTeal,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white), // Color of the back button
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: Icon(Icons.logout, color: Colors.white, size: _getResponsiveSize(context, 24)),
             tooltip: 'خروج از حساب',
             onPressed: () {
               authProvider.logout();
@@ -122,136 +179,203 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: RefreshIndicator(
-      onRefresh: _refreshData,
-      child: ListView( // از ListView به عنوان والد اصلی استفاده می‌کنیم
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // --- بخش ۱: اطلاعات پروفایل (همیشه نمایش داده می‌شود) ---
-          InkWell(
-            onTap: () {
-              Navigator.of(context).push(
-                  MaterialPageRoute(builder: (ctx) => const EditProfileScreen()));
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Row(children: [
-             CircleAvatar(
-          radius: 40,
-          backgroundImage: profileImageFile != null ? FileImage(profileImageFile) : null,
-  child: profileImageFile == null 
-      ? Text(user?.name.isNotEmpty == true ? user!.name.substring(0, 1) : 'U', style: const TextStyle(fontSize: 32))
-      : null,
-),
-              
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(user?.name ?? 'کاربر', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                    Text(user?.email ?? '', style: const TextStyle(color: Colors.grey)),
-                  ]),
-                ),
-                const Icon(Icons.edit_outlined, color: Colors.grey),
-              ]),
+        onRefresh: _refreshData,
+        color: primaryTeal,
+        child: ListView(
+          padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
+          children: [
+            // --- بخش ۱: اطلاعات پروفایل ---
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const EditProfileScreen()));
+              },
+              borderRadius: BorderRadius.circular(_getResponsiveSize(context, 12)),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: _getResponsiveSize(context, 8.0)),
+                child: Row(children: [
+                  Hero(
+                    tag: 'profileImage', // Use the same tag as HomeScreen
+                    child: CircleAvatar(
+                      radius: _getResponsiveSize(context, 40),
+                      backgroundColor: lightTeal.withOpacity(0.3),
+                      backgroundImage: profileImageFile != null ? FileImage(profileImageFile) : null,
+                      child: profileImageFile == null
+                          ? AdaptiveTextSize(
+                              text: user?.name.isNotEmpty == true ? user!.name.substring(0, 1) : 'U',
+                              style: TextStyle(
+                                  fontSize: _getResponsiveSize(context, 32),
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                            )
+                          : null,
+                    ),
+                  ),
+                  SizedBox(width: _getResponsiveSize(context, 16)),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      AdaptiveTextSize(
+                        text: user?.name ?? 'کاربر',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: _getResponsiveSize(context, 20),
+                            color: textDark,
+                            fontFamily: 'Vazirmatn'),
+                      ),
+                      AdaptiveTextSize(
+                        text: user?.email ?? '',
+                        style: TextStyle(color: textMedium, fontSize: _getResponsiveSize(context, 14), fontFamily: 'Vazirmatn'),
+                      ),
+                    ]),
+                  ),
+                  Icon(Icons.edit_outlined, color: textMedium, size: _getResponsiveSize(context, 24)),
+                ]),
+              ),
             ),
-          ),
-          const Divider(height: 32),
+            Divider(height: _getResponsiveSize(context, 32), color: Colors.grey.withOpacity(0.4)),
 
-          // --- بخش ۲: آمار و نمودارها (وابسته به Future) ---
-          FutureBuilder<List<QuizAttempt>>(
-            future: _historyFuture,
-            builder: (context, snapshot) {
-              // حالت لودینگ
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: Padding(padding: EdgeInsets.all(50.0), child: CircularProgressIndicator()));
-              }
-              
-              // حالت خطا
-              if (snapshot.hasError) {
-                return Center(child: Text('خطا در دریافت تاریخچه: ${snapshot.error}'));
-              }
-              
-              // حالت بدون آزمون (داده خالی)
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Padding(
-                  padding: EdgeInsets.all(50.0),
-                  child: Text('هنوز هیچ آزمونی ثبت نشده است. \n با شرکت در آزمون‌ها، پیشرفت خود را اینجا ببینید.', textAlign: TextAlign.center),
-                ));
-              }
-              
-              // حالت موفقیت‌آمیز (داده وجود دارد)
-              final history = snapshot.data!;
-              final totalTests = history.length;
-              final averageScore = history.map((h) => h.percentage).reduce((a, b) => a + b) / totalTests;
-              
-              // ... (محاسبه avgPerformanceByCourse بدون تغییر) ...
+            // --- بخش ۲: آمار و نمودارها (وابسته به Future) ---
+            FutureBuilder<List<QuizAttempt>>(
+              future: _historyFuture,
+              builder: (context, snapshot) {
+                // حالت لودینگ
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                      child: Padding(
+                          padding: EdgeInsets.all(_getResponsiveSize(context, 50.0)),
+                          child: CircularProgressIndicator(color: primaryTeal)));
+                }
 
-              // ویجت Column برای نمایش تمام بخش‌های وابسته به تاریخچه
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildStatsSection(totalTests, averageScore),
-                  const SizedBox(height: 24),
-                  _buildLineChartSection(history),
-                  const SizedBox(height: 24),
-                  // _buildBarChartSection(avgPerformanceByCourse),
-                  const SizedBox(height: 24),
-                  _buildRecentHistorySection(history),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-   ) );
-  }
-  
-  Widget _buildStatsSection(int totalTests, double averageScore) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('آمار کلی عملکرد شما', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: _buildStatCard('تعداد آزمون', totalTests.toString(), Icons.playlist_add_check)),
-            const SizedBox(width: 16),
-            Expanded(child: _buildStatCard('میانگین نمره', '${averageScore.toStringAsFixed(1)}%', Icons.show_chart)),
-          ],
-        )
-      ],
-    );
-  }
-  
-  Widget _buildStatCard(String title, String value, IconData icon) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: Theme.of(context).primaryColor),
-            const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(title, style: const TextStyle(color: Colors.grey)),
+                // حالت خطا
+                if (snapshot.hasError) {
+                  return Center(
+                      child: AdaptiveTextSize(
+                    text: 'خطا در دریافت تاریخچه: ${snapshot.error}',
+                    style: TextStyle(color: Colors.red.shade700, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 14)),
+                  ));
+                }
+
+                // حالت بدون آزمون (داده خالی)
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(
+                      child: Padding(
+                    padding: EdgeInsets.all(_getResponsiveSize(context, 50.0)),
+                    child: AdaptiveTextSize(
+                      text: 'هنوز هیچ آزمونی ثبت نشده است. \n با شرکت در آزمون‌ها، پیشرفت خود را اینجا ببینید.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: textMedium, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 15)),
+                    ),
+                  ));
+                }
+
+                // حالت موفقیت‌آمیز (داده وجود دارد)
+                final history = snapshot.data!;
+                final totalTests = history.length;
+                final averageScore = history.map((h) => h.percentage).reduce((a, b) => a + b) / totalTests;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatsSection(totalTests, averageScore),
+                    SizedBox(height: _getResponsiveSize(context, 24)),
+                    _buildLineChartSection(history),
+                    SizedBox(height: _getResponsiveSize(context, 24)),
+                    // _buildBarChartSection(avgPerformanceByCourse), // Still commented out
+                    SizedBox(height: _getResponsiveSize(context, 24)),
+                    _buildRecentHistorySection(history),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
     );
   }
-  
+
+  Widget _buildStatsSection(int totalTests, double averageScore) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AdaptiveTextSize(
+          text: 'آمار کلی عملکرد شما',
+          style: TextStyle(
+              fontSize: _getResponsiveSize(context, 18),
+              fontWeight: FontWeight.bold,
+              color: textDark,
+              fontFamily: 'Vazirmatn'),
+        ),
+        SizedBox(height: _getResponsiveSize(context, 16)),
+        Row(
+          children: [
+            Expanded(
+                child: _buildStatCard('تعداد آزمون', totalTests.toString(), Icons.playlist_add_check_rounded, primaryTeal)),
+            SizedBox(width: _getResponsiveSize(context, 16)),
+            Expanded(
+                child: _buildStatCard('میانگین نمره', '${averageScore.toStringAsFixed(1)}%', Icons.show_chart_rounded, primaryTeal)),
+          ],
+        )
+      ],
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color iconColor) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
+      child: Container(
+        padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20)),
+          gradient: LinearGradient(
+            colors: [iconColor.withOpacity(0.08), Colors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: _getResponsiveSize(context, 36), color: iconColor),
+            SizedBox(height: _getResponsiveSize(context, 8)),
+            AdaptiveTextSize(
+              text: value,
+              style: TextStyle(
+                  fontSize: _getResponsiveSize(context, 22),
+                  fontWeight: FontWeight.bold,
+                  color: textDark,
+                  fontFamily: 'Vazirmatn'),
+            ),
+            SizedBox(height: _getResponsiveSize(context, 4)),
+            AdaptiveTextSize(
+              text: title,
+              style: TextStyle(color: textMedium, fontFamily: 'Vazirmatn', fontSize: _getResponsiveSize(context, 13)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLineChartSection(List<QuizAttempt> history) {
     final reversedHistory = history.reversed.toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('روند پیشرفت', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
+        AdaptiveTextSize(
+          text: 'روند پیشرفت',
+          style: TextStyle(
+              fontSize: _getResponsiveSize(context, 18),
+              fontWeight: FontWeight.bold,
+              color: textDark,
+              fontFamily: 'Vazirmatn'),
+        ),
+        SizedBox(height: _getResponsiveSize(context, 16)),
         Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
             child: SizedBox(
-              height: 200,
+              height: _getResponsiveSize(context, 200),
               child: LineChart(
                 LineChartData(
                   gridData: const FlGridData(show: false),
@@ -263,28 +387,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           final attempt = reversedHistory[spot.spotIndex];
                           return LineTooltipItem(
                             '${attempt.percentage.toStringAsFixed(1)}%\n',
-                            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            children: [TextSpan(text: DateFormat('yy/MM/dd', 'fa').format(attempt.createdAt), style: const TextStyle(color: Colors.white70))],
+                            TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: _getResponsiveSize(context, 14)),
+                            children: [
+                              TextSpan(
+                                text: DateFormat('yy/MM/dd', 'fa').format(attempt.createdAt),
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: _getResponsiveSize(context, 12)),
+                              )
+                            ],
                           );
                         }).toList();
                       },
+                     
                     ),
                   ),
                   titlesData: FlTitlesData(
-                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+                    leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: _getResponsiveSize(context, 40),
+                            getTitlesWidget: (value, meta) {
+                              return Text(value.toInt().toString(),
+                                  style: TextStyle(color: textMedium, fontSize: _getResponsiveSize(context, 10)),
+                                  textAlign: TextAlign.center);
+                            })),
                     topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        reservedSize: _getResponsiveSize(context, 25),
                         getTitlesWidget: (value, meta) {
                           if (value.toInt() < reversedHistory.length) {
                             final date = reversedHistory[value.toInt()].createdAt;
                             return Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(DateFormat('MM/dd', 'fa').format(date), style: const TextStyle(fontSize: 10)),
+                              padding: EdgeInsets.only(top: _getResponsiveSize(context, 8.0)),
+                              child: Text(DateFormat('MM/dd', 'fa').format(date),
+                                  style: TextStyle(color: textMedium, fontSize: _getResponsiveSize(context, 10))),
                             );
-                          
                           }
                           return const Text('');
                         },
@@ -295,9 +438,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     LineChartBarData(
                       spots: reversedHistory.asMap().entries.map((entry) => FlSpot(entry.key.toDouble(), entry.value.percentage)).toList(),
                       isCurved: true,
-                      color: Theme.of(context).primaryColor,
-                      barWidth: 4,
-                      belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                      color: primaryTeal,
+                      barWidth: _getResponsiveSize(context, 4),
+                      belowBarData: BarAreaData(show: true, color: primaryTeal.withOpacity(0.2)),
+                      dotData: const FlDotData(show: false), // Hide dots for cleaner look
                     ),
                   ],
                 ),
@@ -308,91 +452,146 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
-  Widget _buildBarChartSection(Map<String, double> data) {
-    final keys = data.keys.toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('عملکرد بر اساس موضوع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              height: 200,
-              child: BarChart(
-                BarChartData(
-                  // ...
-                  titlesData: FlTitlesData(
-                    // ...
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 22,
-                        getTitlesWidget: (value, meta) {
-                           if (value.toInt() < keys.length) {
-                             final text = keys[value.toInt()];
-                             return Padding(
-                               padding: const EdgeInsets.only(top: 8.0),
-                               child: Text(text.substring(0, min(5, text.length)), style: const TextStyle(fontSize: 10)),
-                             );
-                           }
-                           return const Text('');
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+
+  // Widget _buildBarChartSection(Map<String, double> data) {
+  //   final keys = data.keys.toList();
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       AdaptiveTextSize(
+  //         text: 'عملکرد بر اساس موضوع',
+  //         style: TextStyle(
+  //             fontSize: _getResponsiveSize(context, 18),
+  //             fontWeight: FontWeight.bold,
+  //             color: textDark,
+  //             fontFamily: 'Vazirmatn'),
+  //       ),
+  //       SizedBox(height: _getResponsiveSize(context, 16)),
+  //       Card(
+  //         elevation: 4,
+  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
+  //         child: Padding(
+  //           padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
+  //           child: SizedBox(
+  //             height: _getResponsiveSize(context, 200),
+  //             child: BarChart(
+  //               BarChartData(
+  //                 // ...
+  //                 titlesData: FlTitlesData(
+  //                   // ...
+  //                   bottomTitles: AxisTitles(
+  //                     sideTitles: SideTitles(
+  //                       showTitles: true,
+  //                       reservedSize: _getResponsiveSize(context, 22),
+  //                       getTitlesWidget: (value, meta) {
+  //                         if (value.toInt() < keys.length) {
+  //                           final text = keys[value.toInt()];
+  //                           return Padding(
+  //                             padding: EdgeInsets.only(top: _getResponsiveSize(context, 8.0)),
+  //                             child: Text(text.substring(0, min(5, text.length)),
+  //                                 style: TextStyle(
+  //                                     fontSize: _getResponsiveSize(context, 10),
+  //                                     color: textMedium)),
+  //                           );
+  //                         }
+  //                         return const Text('');
+  //                       },
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ),
+  //             ),
+  //           ),
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildRecentHistorySection(List<QuizAttempt> history) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('تاریخچه اخیر آزمون‌ها', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton(onPressed: () {}, child: const Text('مشاهده همه')),
+          AdaptiveTextSize(
+            text: 'تاریخچه اخیر آزمون‌ها',
+            style: TextStyle(
+                fontSize: _getResponsiveSize(context, 18),
+                fontWeight: FontWeight.bold,
+                color: textDark,
+                fontFamily: 'Vazirmatn'),
+          ),
+          TextButton(
+              onPressed: () {
+                // TODO: Implement navigation to all history
+              },
+              child: AdaptiveTextSize(
+                text: 'مشاهده همه',
+                style: TextStyle(color: primaryTeal, fontSize: _getResponsiveSize(context, 14), fontFamily: 'Vazirmatn'),
+              )),
         ]),
-        const SizedBox(height: 8),
+        SizedBox(height: _getResponsiveSize(context, 8)),
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: history.length > 5 ? 5 : history.length,
+          itemCount: history.length > 5 ? 5 : history.length, // Display up to 5 recent attempts
           itemBuilder: (context, index) {
             final attempt = history[index];
             final score = attempt.percentage.toInt();
-            final scoreColor = score >= 70 ? Colors.green : (score >= 40 ? Colors.orange : Colors.red);
+            final scoreColor = score >= 70 ? Colors.green.shade600 : (score >= 40 ? Colors.orange.shade600 : Colors.red.shade600);
 
             return Card(
+              elevation: 3,
+              margin: EdgeInsets.symmetric(vertical: _getResponsiveSize(context, 6)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 15))),
               child: InkWell(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(_getResponsiveSize(context, 15)),
                 onTap: () => _handleReviewTap(attempt),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 50, height: 50,
+                        width: _getResponsiveSize(context, 50),
+                        height: _getResponsiveSize(context, 50),
                         child: Stack(fit: StackFit.expand, children: [
-                            CircularProgressIndicator(value: score / 100, strokeWidth: 5, backgroundColor: scoreColor.withOpacity(0.2), valueColor: AlwaysStoppedAnimation<Color>(scoreColor)),
-                            Center(child: Text('$score%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+                          CircularProgressIndicator(
+                              value: score / 100,
+                              strokeWidth: _getResponsiveSize(context, 5),
+                              backgroundColor: scoreColor.withOpacity(0.2),
+                              valueColor: AlwaysStoppedAnimation<Color>(scoreColor)),
+                          Center(
+                              child: AdaptiveTextSize(
+                            text: '$score%',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: _getResponsiveSize(context, 14),
+                                color: textDark),
+                          )),
                         ]),
                       ),
-                      const SizedBox(width: 16),
+                      SizedBox(width: _getResponsiveSize(context, 16)),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(attempt.courseName ?? 'آزمون عمومی', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 4),
-                            Text(DateFormat('yyyy/MM/dd – kk:mm', 'fa').format(attempt.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          AdaptiveTextSize(
+                            text: attempt.courseName ?? 'آزمون عمومی',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: _getResponsiveSize(context, 16),
+                                color: textDark,
+                                fontFamily: 'Vazirmatn'),
+                          ),
+                          SizedBox(height: _getResponsiveSize(context, 4)),
+                          AdaptiveTextSize(
+                            text: DateFormat('yyyy/MM/dd – kk:mm', 'fa').format(attempt.createdAt),
+                            style: TextStyle(
+                                color: textMedium,
+                                fontSize: _getResponsiveSize(context, 12),
+                                fontFamily: 'Vazirmatn'),
+                          ),
                         ]),
                       ),
-                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      Icon(Icons.arrow_forward_ios_rounded, size: _getResponsiveSize(context, 18), color: textMedium.withOpacity(0.7)),
                     ],
                   ),
                 ),
