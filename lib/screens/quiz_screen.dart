@@ -1,4 +1,6 @@
 
+import 'dart:io';
+
 import 'package:azmoonak_app/helpers/adaptive_text_size.dart';
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
 import 'package:azmoonak_app/models/attempt_details.dart';
@@ -159,31 +161,54 @@ static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
 //     }
 //   }
 // }
+Future<bool> hasNetwork() async {
+  try {
+    final result = await InternetAddress.lookup('google.com');
+    return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+  } catch (e) {
+    return false;
+  }
+}
 
 void _submitAndShowResults() async {
-  showDialog(context: context, barrierDismissible: false, builder: (ctx) => const Center(child: CircularProgressIndicator()));
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => const Center(child: CircularProgressIndicator()),
+  );
 
   try {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.user;
     final token = authProvider.token;
-    final connectivityResult = await (Connectivity().checkConnectivity());
-    final answersForApi = _userAnswers.entries.map((e) => {'questionId': e.key, 'answerIndex': e.value}).toList();
-    
-    // متغیر result را اینجا با مقدار اولیه تعریف می‌کنیم
+
+    // ✅ چک اینترنت واقعی
+    final isOnline = await hasNetwork();
+
+    final answersForApi = _userAnswers.entries
+        .map((e) => {'questionId': e.key, 'answerIndex': e.value})
+        .toList();
+
     QuizAttempt result;
 
-    if (connectivityResult != ConnectivityResult.none && token != null && user != null) {
+    if (isOnline && token != null && user != null) {
       // --- حالت آنلاین ---
       final apiService = ApiService();
-      result = await apiService.submitExam(widget.courseIds, answersForApi, token);
+      result = await apiService.submitExam(
+        widget.courseIds,
+        answersForApi,
+        token,
+      );
       result.isSynced = true;
     } else {
       // --- حالت آفلاین ---
       int correct = 0;
-      widget.questions.forEach((q) {
-        if (_userAnswers.containsKey(q.id) && _userAnswers[q.id] == q.correctAnswerIndex) { correct++; }
-      });
+      for (var q in widget.questions) {
+        if (_userAnswers.containsKey(q.id) &&
+            _userAnswers[q.id] == q.correctAnswerIndex) {
+          correct++;
+        }
+      }
       result = QuizAttempt(
         id: 'offline_${DateTime.now().millisecondsSinceEpoch}',
         percentage: (correct / widget.questions.length) * 100,
@@ -191,58 +216,138 @@ void _submitAndShowResults() async {
         correctAnswers: correct,
         totalQuestions: widget.questions.length,
         isSynced: false,
-        courseName: widget.courseIds.length == 1 ? "Single Course" : "آزمون عمومی", // یک نام پیش‌فرض
+        courseName: widget.courseIds.length == 1
+            ? "Single Course"
+            : "آزمون عمومی",
       );
     }
-    
-    // --- ذخیره در Hive (بخش کلیدی) ---
+
+    // --- ذخیره در Hive ---
     final hiveService = HiveService();
-    
-    // ۱. ذخیره نتیجه کلی
-    if(user != null) await hiveService.saveQuizAttempt(result, user.id);
+    if (user != null) await hiveService.saveQuizAttempt(result, user.id);
 
-    // ۲. تبدیل Question ها به AttemptQuestion برای ذخیره جزئیات
     final questionsForReview = widget.questions.map((q) {
-  return AttemptQuestion(
-    id: q.id,
-    text: q.text,
-    // --- تغییر اصلی: فقط متن گزینه‌ها را استخراج می‌کنیم ---
-    options: q.options.map((opt) => opt['text'] ?? '').toList(),
-    correctAnswerIndex: q.correctAnswerIndex,
-  );
-}).toList();
+      return AttemptQuestion(
+        id: q.id,
+        text: q.text,
+        options: q.options.map((opt) => opt['text'] ?? '').toList(),
+        correctAnswerIndex: q.correctAnswerIndex,
+      );
+    }).toList();
 
-    // ۳. ساخت آبجکت جزئیات
-   final details = AttemptDetails(
-  attemptId: result.id,
-  questions: questionsForReview,
-  userAnswers: _userAnswers, // <-- اینجا بدون تغییر است
-);
+    final details = AttemptDetails(
+      attemptId: result.id,
+      questions: questionsForReview,
+      userAnswers: _userAnswers,
+    );
 
-    // ۴. ذخیره جزئیات
-    if(user != null) await hiveService.saveAttemptDetails(details, user.id);
-    
-    // ------------------------------------
+    if (user != null) await hiveService.saveAttemptDetails(details, user.id);
 
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
     if (mounted) {
-        Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-                builder: (ctx) => ResultScreen(
-                    attempt: result,
-                    questions: widget.questions,
-                    userAnswers: _userAnswers,
-                ),
-            ),
-        );
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (ctx) => ResultScreen(
+            attempt: result,
+            questions: widget.questions,
+            userAnswers: _userAnswers,
+          ),
+        ),
+      );
     }
   } catch (e) {
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
     if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}')),
+      );
     }
   }
 }
+
+// void _submitAndShowResults() async {
+//   showDialog(context: context, barrierDismissible: false, builder: (ctx) => const Center(child: CircularProgressIndicator()));
+
+//   try {
+//     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+//     final user = authProvider.user;
+//     final token = authProvider.token;
+//     final connectivityResult = await (Connectivity().checkConnectivity());
+//     final answersForApi = _userAnswers.entries.map((e) => {'questionId': e.key, 'answerIndex': e.value}).toList();
+    
+//     // متغیر result را اینجا با مقدار اولیه تعریف می‌کنیم
+//     QuizAttempt result;
+
+//     if (connectivityResult != ConnectivityResult.none && token != null && user != null) {
+//       // --- حالت آنلاین ---
+//       final apiService = ApiService();
+//       result = await apiService.submitExam(widget.courseIds, answersForApi, token);
+//       result.isSynced = true;
+//     } else {
+//       // --- حالت آفلاین ---
+//       int correct = 0;
+//       widget.questions.forEach((q) {
+//         if (_userAnswers.containsKey(q.id) && _userAnswers[q.id] == q.correctAnswerIndex) { correct++; }
+//       });
+//       result = QuizAttempt(
+//         id: 'offline_${DateTime.now().millisecondsSinceEpoch}',
+//         percentage: (correct / widget.questions.length) * 100,
+//         createdAt: DateTime.now(),
+//         correctAnswers: correct,
+//         totalQuestions: widget.questions.length,
+//         isSynced: false,
+//         courseName: widget.courseIds.length == 1 ? "Single Course" : "آزمون عمومی", // یک نام پیش‌فرض
+//       );
+//     }
+    
+//     // --- ذخیره در Hive (بخش کلیدی) ---
+//     final hiveService = HiveService();
+    
+//     // ۱. ذخیره نتیجه کلی
+//     if(user != null) await hiveService.saveQuizAttempt(result, user.id);
+
+//     // ۲. تبدیل Question ها به AttemptQuestion برای ذخیره جزئیات
+//     final questionsForReview = widget.questions.map((q) {
+//   return AttemptQuestion(
+//     id: q.id,
+//     text: q.text,
+//     // --- تغییر اصلی: فقط متن گزینه‌ها را استخراج می‌کنیم ---
+//     options: q.options.map((opt) => opt['text'] ?? '').toList(),
+//     correctAnswerIndex: q.correctAnswerIndex,
+//   );
+// }).toList();
+
+//     // ۳. ساخت آبجکت جزئیات
+//    final details = AttemptDetails(
+//   attemptId: result.id,
+//   questions: questionsForReview,
+//   userAnswers: _userAnswers, // <-- اینجا بدون تغییر است
+// );
+
+//     // ۴. ذخیره جزئیات
+//     if(user != null) await hiveService.saveAttemptDetails(details, user.id);
+    
+//     // ------------------------------------
+
+//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
+//     if (mounted) {
+//         Navigator.of(context).pushReplacement(
+//             MaterialPageRoute(
+//                 builder: (ctx) => ResultScreen(
+//                     attempt: result,
+//                     questions: widget.questions,
+//                     userAnswers: _userAnswers,
+//                 ),
+//             ),
+//         );
+//     }
+//   } catch (e) {
+//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
+//     if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}')));
+//     }
+//   }
+// }
   @override
   Widget build(BuildContext context) {
     final currentQuestion = widget.questions[_currentIndex];

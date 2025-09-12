@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   bool _isSyncing = false;
   String _errorMessage = '';
-
+bool _isInit = true;
   // --- پالت رنگی جدید (Teal) ---
   static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
   static const Color lightTeal = Color(0xFF4DB6AC); // Teal روشن‌تر
@@ -44,65 +44,22 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color backgroundLight = Color(0xFFF8F9FA); // پس‌زمینه روشن
 
   @override
+  void didChangeDependencies() {
+    // این متد بعد از initState و هر بار که وابستگی‌ها تغییر می‌کنند، اجرا می‌شود
+    if (_isInit) {
+      _loadInitialData();
+    }
+    _isInit = false;
+    super.didChangeDependencies();
+  }
+
+  @override
   void initState() {
     super.initState();
     _loadInitialData();
     _syncAllPremiumContent(showSuccessMessage: false);
   }
-
-  // Helper to get responsive sizes based on screen width
-  double _getResponsiveSize(BuildContext context, double baseSize) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Adjust this multiplier as needed for different screen sizes
-    return baseSize * (screenWidth / 375.0); // Assuming 375 is a common base width (e.g., iPhone 8)
-  }
-// --- تابع اصلی و بازنویسی شده برای Offline-First ---
-  // Future<void> _loadInitialData() async {
-  //   if (!mounted) return;
-  //   setState(() { _isLoading = true; _errorMessage = ''; });
-
-  //   try {
-  //     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
-  //     // ۱. همیشه ابتدا اطلاعات کاربر را رفرش می‌کنیم
-  //     await authProvider.refreshUser();
-      
-  //     final user = authProvider.user;
-  //     if (user == null) throw Exception('کاربر یافت نشد.');
-      
-  //     // ۲. همیشه و اول از همه، از دیتابیس محلی (Hive) می‌خوانیم
-  //     final localCategories = await _hiveService.getCategories(user.id);
-  //     if (mounted) {
-  //       setState(() { _categories = localCategories; });
-  //     }
-
-  //     // ۳. حالا وضعیت اینترنت را برای به‌روزرسانی در پس‌زمینه چک می‌کنیم
-  //     final connectivityResult = await (Connectivity().checkConnectivity());
-  //     if (connectivityResult != ConnectivityResult.none) {
-  //       // اگر آنلاین بودیم، داده‌ها را از سرور می‌گیریم
-  //       final onlineCategories = await _apiService.fetchCategories(authProvider.token!);
-  //       if (mounted) {
-  //         setState(() { _categories = onlineCategories; _errorMessage = ''; });
-  //       }
-        
-  //       // اگر کاربر Premium بود، داده‌های جدید را در Hive هم ذخیره می‌کنیم
-  //       // این یک همگام‌سازی سبک فقط برای دسته‌بندی‌هاست
-  //       if (user.isPremium) {
-  //         await _hiveService.syncData('categories', onlineCategories, user.id);
-  //       }
-  //     } else {
-  //       // اگر آفلاین بودیم و دیتابیس محلی هم خالی بود، پیام خطا می‌دهیم
-  //       if (localCategories.isEmpty) {
-  //         setState(() { _errorMessage = 'شما آفلاین هستید و هیچ داده‌ای برای نمایش وجود ندارد.'; });
-  //       }
-  //     }
-  //   } catch (e) {
-  //     if (mounted) setState(() { _errorMessage = e.toString().replaceAll("Exception: ", ""); });
-  //   } finally {
-  //     if (mounted) setState(() { _isLoading = false; });
-  //   }
-  // }
-  Future<void> _loadInitialData() async {
+Future<void> _loadInitialData() async {
     if (!mounted) return;
     setState(() { _isLoading = true; _errorMessage = ''; });
     try {
@@ -162,45 +119,45 @@ class _HomeScreenState extends State<HomeScreen> {
     if (user == null || token == null || !user.isPremium) return;
 
     setState(() { _isSyncing = true; });
-   try {
-    // ۱. ابتدا تمام داده‌ها را از سرور در لیست‌های موقت جمع‌آوری کن
-    final onlineCategories = await _apiService.fetchCategories(token!);
-    
-    List<Course> allCourses = [];
-    List<Question> allQuestions = [];
-
-    for (var cat in onlineCategories) {
-      final courses = await _apiService.fetchCoursesByCategory(cat.id, token);
-      allCourses.addAll(courses);
-      for (var course in courses) {
-        final questions = await _apiService.fetchAllQuestionsForCourse(course.id, token);
-        allQuestions.addAll(questions);
+    try {
+      // دانلود و ذخیره تمام داده‌ها
+      final onlineCategories = await _apiService.fetchCategories(token);
+      await _hiveService.syncData<Category>('categories', onlineCategories, user.id);
+      
+      List<Course> allCourses = [];
+      List<Question> allQuestions = [];
+      for (var cat in onlineCategories) {
+        final courses = await _apiService.fetchCoursesByCategory(cat.id, token);
+        allCourses.addAll(courses);
+        for (var course in courses) {
+          final questions = await _apiService.fetchAllQuestionsForCourse(course.id, token);
+          allQuestions.addAll(questions);
+        }
       }
-    }
-
-    // ۲. حالا که تمام داده‌ها را داریم، آنها را یکجا در Hive ذخیره کن
-    // (syncData به صورت خودکار داده‌های قدیمی را پاک می‌کند)
-    await _hiveService.syncData<Category>('categories', onlineCategories, user!.id);
-    await _hiveService.syncData<Course>('courses', allCourses, user.id);
-    await _hiveService.syncData<Question>('questions', allQuestions, user.id);
-
-    // ۳. ابزار دیباگ ما برای تایید
-    await _hiveService.debugHive(user.id);
-
-    // ۴. UI را با داده‌های جدید آپدیت کن
-    final latestCategories = await _hiveService.getCategories(user.id);
-    if (mounted) {
-      setState(() { _categories = latestCategories; _errorMessage = ''; });
-      if (showSuccessMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('همگام‌سازی کامل با موفقیت انجام شد!')));
+      await _hiveService.syncData<Course>('courses', allCourses, user.id);
+      await _hiveService.syncData<Question>('questions', allQuestions, user.id);
+      
+      await _hiveService.debugHive(user.id);
+      // آپدیت UI با داده‌های جدید
+      if (mounted) {
+        setState(() { _categories = onlineCategories; _errorMessage = ''; });
+        if (showSuccessMessage) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('همگام‌سازی کامل با موفقیت انجام شد!')));
+        }
       }
+    } catch (e) {
+      print("Sync Error: $e");
+    } finally {
+      if (mounted) setState(() { _isSyncing = false; });
     }
-  } catch (e) {
-    print("Sync Error: $e");
-  } finally {
-    if (mounted) setState(() { _isSyncing = false; });
   }
-}
+  // Helper to get responsive sizes based on screen width
+  double _getResponsiveSize(BuildContext context, double baseSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Adjust this multiplier as needed for different screen sizes
+    return baseSize * (screenWidth / 375.0); // Assuming 375 is a common base width (e.g., iPhone 8)
+  }
+
 
   Future<void> _syncOfflineAttempts({required String userId, required String token}) async {
     // این تابع برای آینده است و فعلا منطق پیچیده‌ای ندارد

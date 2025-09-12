@@ -129,23 +129,82 @@ Future<void> syncData<T extends HiveObject>(String baseBoxName, List<T> data, St
 
     print("---------------------\n");
   }
-   Future<List<Course>> getCoursesByCategory(String categoryId, String userId) async {
-  print("--- HIVE DEBUG: Fetching courses for category ID: $categoryId ---");
+  //  Future<List<Course>> getCoursesByCategory(String categoryId, String userId) async {
+  // print("--- HIVE DEBUG: Fetching courses for category ID: $categoryId ---");
   
-  final box = await Hive.openBox<Course>(_userBoxName('courses', userId));
+  // final box = await Hive.openBox<Course>(_userBoxName('courses', userId));
   
-  // لاگ برای دیدن تمام دوره‌های موجود در Box
-  print("Total courses in box: ${box.length}");
-  box.values.forEach((course) {
-    print(" -> Course: ${course.name}, CategoryID: ${course.categoryId}");
-  });
+  // // لاگ برای دیدن تمام دوره‌های موجود در Box
+  // print("Total courses in box: ${box.length}");
+  // box.values.forEach((course) {
+  //   print(" -> Course: ${course.name}, CategoryID: ${course.categoryId}");
+  // });
 
-  // فیلتر کردن
-  final courses = box.values.where((course) => course.categoryId == categoryId).toList();
+  // // فیلتر کردن
+  // final courses = box.values.where((course) => course.categoryId == categoryId).toList();
   
-  print("Found ${courses.length} courses matching the category ID.");
-  print("---------------------------------------------------------");
-  await box.close();
-  return courses;
+  // print("Found ${courses.length} courses matching the category ID.");
+  // print("---------------------------------------------------------");
+  // await box.close();
+  // return courses;
+  // }
+ Future<List<Course>> getCoursesByCategory(String categoryId, String userId) async {
+  try {
+    final boxName = _userBoxName('courses', userId);
+
+    // اگر باز نبود، بازش کن
+    final box = Hive.isBoxOpen(boxName)
+        ? Hive.box<Course>(boxName)
+        : await Hive.openBox<Course>(boxName);
+
+    // فیلتر کردن دوره‌های این دسته
+    final courses = box.values.where((course) {
+      return course.categoryId.toString() == categoryId.toString();
+    }).toList();
+
+    print("📦 خواندن ${courses.length} دوره از Hive برای categoryId=$categoryId (userId=$userId)");
+
+    return courses;
+  } catch (e) {
+    print("❌ خطا در getCoursesByCategory: $e");
+    return [];
   }
+}
+
+Future<void> saveCoursesByCategory(
+  String categoryId,
+  String userId,
+  List<Course> courses,
+) async {
+  try {
+    final boxName = _userBoxName('courses', userId);
+
+    // اگر باز نبود، بازش کن
+    final box = Hive.isBoxOpen(boxName)
+        ? Hive.box<Course>(boxName)
+        : await Hive.openBox<Course>(boxName);
+
+    // 🧹 پاک کردن دوره‌های قبلی این دسته
+    final keysToDelete = box.keys.where((key) {
+      final course = box.get(key);
+      return course != null && course.categoryId.toString() == categoryId.toString();
+    }).toList();
+
+    if (keysToDelete.isNotEmpty) {
+      await box.deleteAll(keysToDelete);
+    }
+
+    // 📌 ذخیره دوره‌های جدید
+    final Map<dynamic, Course> dataMap = {
+      for (var item in courses) (item as dynamic).id: item
+    };
+
+    await box.putAll(dataMap);
+
+    print("✅ ذخیره ${courses.length} دوره برای categoryId=$categoryId در userId=$userId");
+  } catch (e) {
+    print("❌ خطا در saveCoursesByCategory: $e");
+  }
+}
+
 }

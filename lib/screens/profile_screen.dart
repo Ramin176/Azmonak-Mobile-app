@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math'; // برای استفاده از تابع min
 import 'package:azmoonak_app/helpers/adaptive_text_size.dart'; // Import the new helper
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
+import 'package:azmoonak_app/screens/AllExamsPage.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -453,61 +454,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Widget _buildBarChartSection(Map<String, double> data) {
-  //   final keys = data.keys.toList();
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       AdaptiveTextSize(
-  //         text: 'عملکرد بر اساس موضوع',
-  //         style: TextStyle(
-  //             fontSize: _getResponsiveSize(context, 18),
-  //             fontWeight: FontWeight.bold,
-  //             color: textDark,
-  //             fontFamily: 'Vazirmatn'),
-  //       ),
-  //       SizedBox(height: _getResponsiveSize(context, 16)),
-  //       Card(
-  //         elevation: 4,
-  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize(context, 20))),
-  //         child: Padding(
-  //           padding: EdgeInsets.all(_getResponsiveSize(context, 16.0)),
-  //           child: SizedBox(
-  //             height: _getResponsiveSize(context, 200),
-  //             child: BarChart(
-  //               BarChartData(
-  //                 // ...
-  //                 titlesData: FlTitlesData(
-  //                   // ...
-  //                   bottomTitles: AxisTitles(
-  //                     sideTitles: SideTitles(
-  //                       showTitles: true,
-  //                       reservedSize: _getResponsiveSize(context, 22),
-  //                       getTitlesWidget: (value, meta) {
-  //                         if (value.toInt() < keys.length) {
-  //                           final text = keys[value.toInt()];
-  //                           return Padding(
-  //                             padding: EdgeInsets.only(top: _getResponsiveSize(context, 8.0)),
-  //                             child: Text(text.substring(0, min(5, text.length)),
-  //                                 style: TextStyle(
-  //                                     fontSize: _getResponsiveSize(context, 10),
-  //                                     color: textMedium)),
-  //                           );
-  //                         }
-  //                         return const Text('');
-  //                       },
-  //                     ),
-  //                   ),
-  //                 ),
-  //               ),
-  //             ),
-  //           ),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
-
   Widget _buildRecentHistorySection(List<QuizAttempt> history) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,6 +470,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
               onPressed: () {
                 // TODO: Implement navigation to all history
+                 Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AllExamsPage(history: history),
+                      ),
+                    );
               },
               child: AdaptiveTextSize(
                 text: 'مشاهده همه',
