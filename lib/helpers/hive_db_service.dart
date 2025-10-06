@@ -1,6 +1,5 @@
+import 'package:azmoonak_app/models/subject.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../models/category.dart';
-import '../models/course.dart';
 import '../models/question.dart';
 import '../models/quiz_attempt.dart';
 import '../models/attempt_details.dart';
@@ -36,20 +35,17 @@ Future<void> syncData<T extends HiveObject>(String baseBoxName, List<T> data, St
   final Map<dynamic, T> dataMap = { for (var item in data) (item as dynamic).id : item };
   await box.putAll(dataMap);
 }
-  // --- عملیات خواندن داده‌های کاربر ---
-  Future<List<Category>> getCategories(String userId) async {
-    final box = await _openUserBox<Category>('categories', userId);
+
+Future<List<Subject>> getSubjects(String userId) async {
+    final box = await _openUserBox<Subject>('subjects', userId);
     return box.values.toList();
   }
   
-  // Future<List<Course>> getCoursesByCategory(String categoryId, String userId) async {
-  //   final box = await _openUserBox<Course>('courses', userId);
-  //   return box.values.where((course) => course.categoryId == categoryId).toList();
-  // }
 
-  Future<List<Question>> getRandomQuestions(List<String> courseIds, int limit, String userId) async {
+
+   Future<List<Question>> getRandomQuestions(List<String> subjectIds, int limit, String userId) async {
     final box = await _openUserBox<Question>('questions', userId);
-    final filtered = box.values.where((q) => courseIds.contains(q.courseId)).toList();
+    final filtered = box.values.where((q) => subjectIds.contains(q.subjectId)).toList();
     filtered.shuffle();
     return filtered.take(limit).toList();
   }
@@ -99,112 +95,51 @@ Future<void> syncData<T extends HiveObject>(String baseBoxName, List<T> data, St
   }
 
   // --- تابع برای پاک کردن داده‌های کاربر هنگام خروج ---
-  Future<void> clearUserBoxes(String userId) async {
+   Future<void> clearUserBoxes(String userId) async {
+      // حذف Box های قدیمی
       await Hive.deleteBoxFromDisk(_userBoxName('categories', userId));
       await Hive.deleteBoxFromDisk(_userBoxName('courses', userId));
+      
+      // حذف Box های جدید
+      await Hive.deleteBoxFromDisk(_userBoxName('subjects', userId));
       await Hive.deleteBoxFromDisk(_userBoxName('questions', userId));
       await Hive.deleteBoxFromDisk(_userBoxName('quiz_attempts', userId));
       await Hive.deleteBoxFromDisk(_userBoxName('attempt_details', userId));
       print("All data boxes for user $userId have been cleared.");
   }
-   Future<void> debugHive(String userId) async {
-    print("\n--- HIVE DEBUGGER ---");
-    
-    final categoriesBox = await Hive.openBox<Category>(_userBoxName('categories', userId));
-    print("Categories Box ('categories_$userId'): Contains ${categoriesBox.length} items.");
-    if (categoriesBox.isNotEmpty) print("First Category: ${categoriesBox.values.first.name}");
-    await categoriesBox.close();
-
-    final coursesBox = await Hive.openBox<Course>(_userBoxName('courses', userId));
-    print("Courses Box ('courses_$userId'): Contains ${coursesBox.length} items.");
-    await coursesBox.close();
-
-    final questionsBox = await Hive.openBox<Question>(_userBoxName('questions', userId));
-    print("Questions Box ('questions_$userId'): Contains ${questionsBox.length} items.");
-    await questionsBox.close();
-
-    final attemptsBox = await Hive.openBox<QuizAttempt>(_userBoxName('quiz_attempts', userId));
-    print("Attempts Box ('quiz_attempts_$userId'): Contains ${attemptsBox.length} items.");
-    await attemptsBox.close();
-
-    print("---------------------\n");
-  }
-  //  Future<List<Course>> getCoursesByCategory(String categoryId, String userId) async {
-  // print("--- HIVE DEBUG: Fetching courses for category ID: $categoryId ---");
   
-  // final box = await Hive.openBox<Course>(_userBoxName('courses', userId));
-  
-  // // لاگ برای دیدن تمام دوره‌های موجود در Box
-  // print("Total courses in box: ${box.length}");
-  // box.values.forEach((course) {
-  //   print(" -> Course: ${course.name}, CategoryID: ${course.categoryId}");
-  // });
+Future<void> debugUserBoxes(String userId) async {
+  print("\n\n=============== HIVE DEBUGGER ================");
+  print("--- Checking boxes for User ID: $userId ---");
 
-  // // فیلتر کردن
-  // final courses = box.values.where((course) => course.categoryId == categoryId).toList();
-  
-  // print("Found ${courses.length} courses matching the category ID.");
-  // print("---------------------------------------------------------");
-  // await box.close();
-  // return courses;
-  // }
- Future<List<Course>> getCoursesByCategory(String categoryId, String userId) async {
   try {
-    final boxName = _userBoxName('courses', userId);
-
-    // اگر باز نبود، بازش کن
-    final box = Hive.isBoxOpen(boxName)
-        ? Hive.box<Course>(boxName)
-        : await Hive.openBox<Course>(boxName);
-
-    // فیلتر کردن دوره‌های این دسته
-    final courses = box.values.where((course) {
-      return course.categoryId.toString() == categoryId.toString();
-    }).toList();
-
-    print("📦 خواندن ${courses.length} دوره از Hive برای categoryId=$categoryId (userId=$userId)");
-
-    return courses;
-  } catch (e) {
-    print("❌ خطا در getCoursesByCategory: $e");
-    return [];
-  }
-}
-
-Future<void> saveCoursesByCategory(
-  String categoryId,
-  String userId,
-  List<Course> courses,
-) async {
-  try {
-    final boxName = _userBoxName('courses', userId);
-
-    // اگر باز نبود، بازش کن
-    final box = Hive.isBoxOpen(boxName)
-        ? Hive.box<Course>(boxName)
-        : await Hive.openBox<Course>(boxName);
-
-    // 🧹 پاک کردن دوره‌های قبلی این دسته
-    final keysToDelete = box.keys.where((key) {
-      final course = box.get(key);
-      return course != null && course.categoryId.toString() == categoryId.toString();
-    }).toList();
-
-    if (keysToDelete.isNotEmpty) {
-      await box.deleteAll(keysToDelete);
+    // بررسی Box مربوط به Subjects
+    final subjectBoxName = _userBoxName('subjects', userId);
+    if (await Hive.boxExists(subjectBoxName)) {
+      final box = await Hive.openBox<Subject>(subjectBoxName);
+      print("✅ Box 'subjects' EXISTS. Contains ${box.length} items.");
+      if (box.isNotEmpty) {
+        // چاپ کردن ۵ آیتم اول برای نمونه
+        box.values.take(5).forEach((subject) {
+          print("  -> Subject: id=${subject.id}, name=${subject.name}, parent=${subject.parent}");
+        });
+      }
+      await box.close();
+    } else {
+      print("❌ Box 'subjects' DOES NOT EXIST.");
     }
 
-    // 📌 ذخیره دوره‌های جدید
-    final Map<dynamic, Course> dataMap = {
-      for (var item in courses) (item as dynamic).id: item
-    };
+    // شما می‌توانید Box های دیگر را هم به همین شکل برای تست اضافه کنید
+    // final questionBoxName = _userBoxName('questions', userId);
+    // ...
 
-    await box.putAll(dataMap);
-
-    print("✅ ذخیره ${courses.length} دوره برای categoryId=$categoryId در userId=$userId");
   } catch (e) {
-    print("❌ خطا در saveCoursesByCategory: $e");
+    print("!!! ERROR during Hive debug: $e");
   }
+
+  print("==========================================\n\n");
+}
 }
 
-}
+
+

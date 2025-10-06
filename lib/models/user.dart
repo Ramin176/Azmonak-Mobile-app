@@ -1,65 +1,78 @@
 
+import 'package:azmoonak_app/models/purchased_subject.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 part 'user.g.dart';
 @HiveType(typeId: 4) // ID منحصر به فرد
-
 class AppUser extends HiveObject {
   @HiveField(0)
-   String id;
-  
+  String id;
+
   @HiveField(1)
-   String name;
-  
+  String name;
+
   @HiveField(2)
   final String email;
-  
+
   @HiveField(3)
-   String subscriptionType;
-  
+  List<PurchasedSubject> purchasedSubjects;
+
   @HiveField(4)
-   DateTime? subscriptionExpiresAt;
+  String? profileImagePath;
 
   @HiveField(5)
-    String? profileImagePath;
+  final bool isActive;
+  
+  @HiveField(6)
+  final String role;
+
+
   AppUser({
     required this.id,
     required this.name,
     required this.email,
-    required this.subscriptionType,
-    this.subscriptionExpiresAt,
-    this.profileImagePath
+    required this.purchasedSubjects,
+    this.profileImagePath,
+    required this.isActive,
+    required this.role,
   });
 
-  // یک getter هوشمند برای چک کردن وضعیت Premium
-    bool get isPremium {
-    // اگر نوع اشتراک "رایگان" باشد، قطعا Premium نیست
-    if (subscriptionType == 'free') return false;
-    
-    // اگر تاریخ انقضا وجود نداشته باشد، Premium نیست
-    if (subscriptionExpiresAt == null) return false;
-    
-    // اگر تاریخ انقضا "بعد از" لحظه حال باشد، کاربر Premium است
-    return subscriptionExpiresAt!.isAfter(DateTime.now());
+  // Getter هوشمند جدید برای چک کردن وضعیت Premium
+  bool get isPremium {
+    if (role == 'admin') return true;
+    if (purchasedSubjects.isEmpty) return false;
+    // اگر حداقل یک اشتراک فعال وجود داشته باشد، کاربر Premium محسوب می‌شود
+    return purchasedSubjects.any((sub) => sub.expiresAt.isAfter(DateTime.now()));
   }
-AppUser copyWith({String? name, String? profileImagePath}) {
+
+  // تابع برای چک کردن دسترسی به یک موضوع خاص
+  bool canAccessSubject(String subjectId) {
+    if (role == 'admin') return true;
+    final now = DateTime.now();
+    return purchasedSubjects.any((sub) => sub.subjectId == subjectId && sub.expiresAt.isAfter(now));
+  }
+
+  AppUser copyWith({String? name, String? profileImagePath}) {
     return AppUser(
-      id: this.id,
+      id: id,
       name: name ?? this.name,
-      email: this.email,
-      subscriptionType: this.subscriptionType,
-      subscriptionExpiresAt: this.subscriptionExpiresAt,
+      email: email,
+      purchasedSubjects: purchasedSubjects,
       profileImagePath: profileImagePath ?? this.profileImagePath,
+      isActive: isActive,
+      role: role,
     );
   }
+
   factory AppUser.fromJson(Map<String, dynamic> json) {
     return AppUser(
       id: json['_id'],
       name: json['name'],
       email: json['email'],
-      subscriptionType: json['subscriptionType'] ?? 'free',
-      subscriptionExpiresAt: json['subscriptionExpiresAt'] != null
-          ? DateTime.parse(json['subscriptionExpiresAt'])
-          : null,
+      purchasedSubjects: (json['purchasedSubjects'] as List<dynamic>? ?? [])
+          .map((sub) => PurchasedSubject.fromJson(sub))
+          .toList(),
+      isActive: json['isActive'] ?? false,
+      role: json['role'] ?? 'user',
     );
   }
 }

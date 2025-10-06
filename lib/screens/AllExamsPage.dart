@@ -175,7 +175,7 @@ class _AllExamsPageState extends State<AllExamsPage> {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           AdaptiveTextSize(
-                            text: attempt.courseName ?? 'آزمون عمومی',
+                            text: attempt.subjectName ?? 'آزمون عمومی',
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: _getResponsiveSize(context, 16),

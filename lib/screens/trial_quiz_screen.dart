@@ -1,7 +1,9 @@
+import 'package:azmoonak_app/helpers/adaptive_text_size.dart';
+import 'package:azmoonak_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import '../models/question.dart';
-import 'result_screen.dart'; // ما از همان صفحه نتایج استفاده می‌کنیم
-import '../models/quiz_attempt.dart'; // برای ارسال به ResultScreen
+import 'result_screen.dart'; 
+import '../models/quiz_attempt.dart'; 
 
 class TrialQuizScreen extends StatefulWidget {
   final List<Question> questions;
@@ -16,6 +18,14 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
   int? _selectedOptionIndex;
   bool _isAnswered = false;
   final Map<String, int> _userAnswers = {};
+
+  static const Color primaryTeal = Color(0xFF008080);
+  static const Color lightTeal = Color(0xFF4DB6AC);
+  static const Color darkTeal = Color(0xFF004D40);
+  static const Color accentYellow = Color(0xFFFFD700);
+  static const Color textDark = Color(0xFF212121);
+  static const Color textMedium = Color(0xFF607D8B);
+  static const Color backgroundLight = Color(0xFFF8F9FA);
 
   void _answerQuestion(int index) {
     if (_isAnswered) return;
@@ -34,7 +44,7 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
         _selectedOptionIndex = null;
       });
     } else {
-      // --- تغییر اصلی اینجاست: محاسبه محلی و رفتن به صفحه نتایج ---
+    
       _showTrialResults();
     }
   }
@@ -47,12 +57,12 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
       }
     });
 
-    // یک آبجکت QuizAttempt موقت فقط برای نمایش در ResultScreen می‌سازیم
+ 
     final trialResult = QuizAttempt(
       id: 'trial_result',
       percentage: (correct / widget.questions.length) * 100,
       createdAt: DateTime.now(),
-      courseName: 'آزمون آمادگی',
+      subjectName: 'آزمون آمادگی',
       correctAnswers: correct,
       totalQuestions: widget.questions.length,
       wrongAnswers: widget.questions.length - correct,
@@ -68,23 +78,39 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
           attempt: trialResult,
           questions: widget.questions,
           userAnswers: _userAnswers,
-          isTrial: true, // یک فلگ برای اینکه ResultScreen بداند این آزمون آزمایشی است
+          isTrial: true, 
         ),
       ),
     );
   }
-
+double _getResponsiveSize(double baseSize) {
+    const double referenceWidth = 375.0;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    double scaleFactor = screenWidth / referenceWidth;
+    if (scaleFactor > 1.5) scaleFactor = 1.5;
+    return baseSize * scaleFactor;
+  }
   @override
   Widget build(BuildContext context) {
    final currentQuestion = widget.questions[_currentIndex];
     final progress = (_currentIndex + 1) / widget.questions.length;
-
+ final fullImageUrl = currentQuestion.imageUrl != null 
+      ? "${ApiService.baseUrl.replaceAll('/api', '')}${currentQuestion.imageUrl}" // برای شبیه‌ساز اندروید
+      : null;
     return Scaffold(
       appBar: AppBar(
          backgroundColor: Colors.teal,
         elevation: 0,
         centerTitle: true,
-        title: Text('سوال ${_currentIndex + 1} از ${widget.questions.length}'),
+        title:  AdaptiveTextSize(
+          text: 'سوال ${_currentIndex + 1} از ${widget.questions.length}',
+          style: TextStyle(
+            fontSize: _getResponsiveSize(18),
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontFamily: 'Vazirmatn',
+          ),
+        ),
        
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(6.0),
@@ -101,22 +127,70 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // متن سوال
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                currentQuestion.text,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.5),
-                textAlign: TextAlign.center,
+       Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_getResponsiveSize( 20))),
+              child: Container(
+                padding: EdgeInsets.all(_getResponsiveSize( 20.0)),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(_getResponsiveSize(20)),
+                  gradient: LinearGradient(
+                    colors: [lightTeal.withOpacity(0.1), Colors.white],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AdaptiveTextSize(
+                      text: currentQuestion.text,
+                      style: TextStyle(
+                        fontSize: _getResponsiveSize( 18),
+                        fontWeight: FontWeight.bold,
+                        color: textDark,
+                        fontFamily: 'Vazirmatn',
+                      ),
+                      textAlign: TextAlign.justify,
+                    ),
+                    if (fullImageUrl != null && fullImageUrl.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(top: _getResponsiveSize( 16.0)),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(_getResponsiveSize( 12)),
+                          child: Image.network(
+                            fullImageUrl,
+                            height: _getResponsiveSize(180),
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: primaryTeal,
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              height: _getResponsiveSize(180),
+                              color: backgroundLight,
+                              child: Center(
+                                child: Icon(Icons.broken_image, color: textMedium, size: _getResponsiveSize( 50)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
+          
             const SizedBox(height: 24),
             
-            // لیست گزینه‌ها
+          
             Expanded(
               child: ListView.builder(
                 itemCount: currentQuestion.options.length,
@@ -126,11 +200,11 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
               ),
             ),
             
-            // نمایش توضیحات (فقط بعد از پاسخ دادن)
+           
             if (_isAnswered && currentQuestion.explanation.isNotEmpty)
               _buildExplanationCard(currentQuestion.explanation),
 
-            // دکمه بعدی (فقط بعد از پاسخ دادن ظاهر می‌شود)
+          
             if (_isAnswered)
               Padding(
                 padding: const EdgeInsets.only(top: 16.0),
@@ -152,12 +226,12 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
 
     if (_isAnswered) {
       if (index == question.correctAnswerIndex) {
-        // گزینه صحیح
+       
         borderColor = Colors.green;
         backgroundColor = Colors.green.withOpacity(0.1);
         trailingIcon = Icons.check_circle;
       } else if (index == _selectedOptionIndex) {
-        // گزینه غلطی که کاربر انتخاب کرده
+      
         borderColor = Colors.red;
         backgroundColor = Colors.red.withOpacity(0.1);
         trailingIcon = Icons.cancel;
@@ -187,7 +261,6 @@ class _TrialQuizScreenState extends State<TrialQuizScreen> {
     );
   }
 
-  // ویجت جدید برای نمایش توضیحات
   Widget _buildExplanationCard(String explanation) {
     return Card(
       color: Colors.blue[50],

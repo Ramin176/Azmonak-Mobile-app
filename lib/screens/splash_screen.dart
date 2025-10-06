@@ -1,4 +1,5 @@
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
+import 'package:azmoonak_app/models/question.dart';
 import 'package:azmoonak_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -55,23 +56,54 @@ class _SplashScreenState extends State<SplashScreen> {
       // ذخیره متن "درباره ما" در Hive
       await settingsBox.put('about_us_text', settings['aboutUsText']);
       // می‌توانید پلن‌ها و اطلاعات پرداخت را هم اینجا ذخیره کنید
-      
+       await settingsBox.put('deactivated_user_message', settings['deactivatedUserMessage']);
       print("App settings synced successfully.");
     } catch (e) {
       print("Could not sync app settings: $e");
     }
   }
 
- Future<void> _syncTrialQuestions() async {
-    try {
-       final hiveService = HiveService();
-    final onlineQuestions = await ApiService.fetchTrialQuestions();
-      await hiveService.syncTrialQuestions(onlineQuestions);
-      print("${onlineQuestions.length} trial questions synced successfully.");
-    } catch (e) {
-      print("Could not sync trial questions: $e");
-    }
+//  Future<void> _syncTrialQuestions() async {
+//     try {
+//        final hiveService = HiveService();
+//     final onlineQuestions = await ApiService.fetchTrialQuestions();
+//       await hiveService.syncTrialQuestions(onlineQuestions);
+//       print("${onlineQuestions.length} trial questions synced successfully.");
+//     } catch (e) {
+//       print("Could not sync trial questions: $e");
+//     }
+//   }
+Future<void> _syncTrialQuestions() async {
+  // ابتدا چک می‌کنیم آیا از قبل سوالی داریم یا نه
+  final trialBox = Hive.box<Question>('trial_questions');
+  if (trialBox.isNotEmpty) {
+    print("[DEBUG] سوالات آزمایشی از قبل در Hive وجود دارد. نیازی به فراخوانی API نیست.");
+    return; // اگر سوالی بود، از تابع خارج شو
   }
+
+  print("[DEBUG] باکس سوالات آزمایشی خالی است. در حال تلاش برای دریافت از سرور...");
+  
+  try {
+    // چون متد استاتیک است، نیازی به ساختن نمونه نیست (فعلا)
+    final onlineQuestions = await ApiService.fetchTrialQuestions();
+    
+    if (onlineQuestions.isNotEmpty) {
+      final hiveService = HiveService();
+      await hiveService.syncTrialQuestions(onlineQuestions);
+      print("[DEBUG] موفقیت: ${onlineQuestions.length} سوال آزمایشی با موفقیت دریافت و ذخیره شد.");
+    } else {
+      print("[DEBUG] هشدار: API فراخوانی شد ولی هیچ سوالی برنگرداند.");
+    }
+  } catch (e, stacktrace) {
+    // ===== این بخش خطا را با جزئیات کامل چاپ می‌کند =====
+    print("=================================================");
+    print("[DEBUG] خطای بسیار مهم در هنگام فراخوانی API رخ داد!");
+    print("نوع خطا: ${e.runtimeType}");
+    print("متن خطا: $e");
+    print("Stacktrace: \n$stacktrace");
+    print("=================================================");
+  }
+}
   @override
   Widget build(BuildContext context) {
     return const Scaffold(

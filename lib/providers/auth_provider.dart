@@ -10,37 +10,36 @@ import '../models/user.dart';
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-
+  bool _isDeactivated = false;
+  
   String? _token;
   AppUser? _user;
 
-  bool get isAuthenticated => _token != null && _user != null;
+
+  bool get isAuthenticated => _token != null && _user != null && !_isDeactivated;
+  bool get isDeactivated => _isDeactivated;
   String? get token => _token;
   AppUser? get user => _user;
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+  void _handleApiError(dynamic e) {
+    if (e.toString().contains('USER_DEACTIVATED')) {
+      print("User is deactivated. Forcing logout.");
+      _isDeactivated = true;
+      logout(); // کاربر را به صورت اجباری خارج کن
+    }
+    // می‌توانید خطاهای دیگر را هم در اینجا مدیریت کنید
+  }
     final HiveService _hiveService = HiveService();
-Future<bool> _handleAuthResponse(Map<String, dynamic> response) async {
+
+  Future<bool> _handleAuthResponse(Map<String, dynamic> response) async {
     _errorMessage = null;
     if (response.containsKey('token') && response.containsKey('user')) {
       _token = response['token'];
+      _user = AppUser.fromJson(response['user']);
       
-      // ۱. آبجکت کاربر را از پاسخ سرور بساز
-      final userFromServer = AppUser.fromJson(response['user']);
-      
-      // ۲. آبجکت کاربر قدیمی (که ممکن است عکس داشته باشد) را از Hive بخوان
-      final userBox = await Hive.openBox<AppUser>('userBox');
-      final oldUser = userBox.get('currentUser');
-      
-      // ۳. اطلاعات عکس را از کاربر قدیمی به کاربر جدید منتقل کن
-      if (oldUser != null && oldUser.id == userFromServer.id) {
-        userFromServer.profileImagePath = oldUser.profileImagePath;
-      }
-      
-      _user = userFromServer;
-      
-      // ۴. اطلاعات کامل و ترکیب شده را در حافظه ذخیره کن
       await _storage.write(key: 'token', value: _token);
+      final userBox = await Hive.openBox<AppUser>('userBox');
       await userBox.put('currentUser', _user!);
       
       notifyListeners();
@@ -77,6 +76,7 @@ Future<bool> _handleAuthResponse(Map<String, dynamic> response) async {
   Future<void> logout() async {
   _token = null;
   _user = null;
+ _isDeactivated = false;
   await _storage.delete(key: 'token');
   
   // ما دیگر داده‌های Hive را پاک نمی‌کنیم. آنها برای ورود بعدی باقی می‌مانند.
@@ -131,19 +131,86 @@ Future<void> updateProfileImage(String path) async {
     }
   }
   
+  // Future<void> refreshUser() async {
+  //   if (_token == null) return;
+  //   try {
+  //     final userData = await _apiService.fetchCurrentUser(_token!);
+  //     final currentUser = AppUser.fromJson(userData);
+  //     final currentUserFromServer = AppUser.fromJson(userData);
+  //     if (!currentUserFromServer.isActive) {
+  //       print("User is deactivated by admin. Forcing logout state.");
+  //       _isDeactivated = true;
+  //       // ما کاربر را logout نمی‌کنیم، فقط وضعیت را تغییر می‌دهیم
+  //       // تا main.dart صفحه DeactivatedScreen را نشان دهد
+  //       notifyListeners();
+  //       return; // ادامه نده
+  //     }
+  //     _isDeactivated = false;
+  //     currentUser.profileImagePath = _user?.profileImagePath;
+  //     _user = currentUser;
+      
+  //     final userBox = await Hive.openBox<AppUser>('userBox');
+  //     await userBox.put('currentUser', _user!);
+  //     notifyListeners();
+      
+  //   } catch (e) {
+  //     print("Failed to refresh user: $e");
+  //   }
+  // }
+ 
   Future<void> refreshUser() async {
     if (_token == null) return;
     try {
       final userData = await _apiService.fetchCurrentUser(_token!);
-      final currentUser = AppUser.fromJson(userData);
-      currentUser.profileImagePath = _user?.profileImagePath;
-      _user = currentUser;
+      final serverUser = AppUser.fromJson(userData);
+      
+      if (!serverUser.isActive) {
+        _isDeactivated = true;
+        notifyListeners();
+        return; 
+      }
+      _isDeactivated = false; 
+      serverUser.profileImagePath = _user?.profileImagePath;
+      _user = serverUser;
       
       final userBox = await Hive.openBox<AppUser>('userBox');
       await userBox.put('currentUser', _user!);
       notifyListeners();
     } catch (e) {
-      print("Failed to refresh user: $e");
+      print("AuthProvider: Failed to refresh user: $e");
     }
   }
+// Future<void> purchaseSubject(String subjectId, String duration) async {
+//     if (_token == null) throw Exception('You are not logged in.');
+//     try {
+//       final response = await _apiService.purchaseSubject(subjectId, duration, _token!);
+//       // پس از خرید موفق، سرور آبجکت کاربر آپدیت شده را برمی‌گرداند
+//       // ما از این آبجکت برای آپدیت وضعیت برنامه استفاده می‌کنیم
+//       await _handleAuthResponse(response);
+//     } catch (e) {
+//       rethrow; // خطا را به UI ارسال کن تا نمایش داده شود
+//     }
+//   }
+
+Future<Map<String, dynamic>> purchaseSubject(String subjectId, String duration, String planDuration, String planPrice) async {
+  if (_token == null) throw Exception('You are not logged in.');
+  
+  try {
+    // از تابع جدید در ApiService استفاده می‌کنیم و تمام پارامترهای لازم را ارسال می‌کنیم
+    final response = await _apiService.createSubjectOrder(
+      subjectId: subjectId,
+      planKey: duration, // planKey در بک‌اند همان duration است
+      planDuration: planDuration,
+      planPrice: planPrice,
+      token: _token!,
+    );
+    
+    // API جدید دیگر آبجکت user را برنمی‌گرداند، فقط یک پیام موفقیت
+    // بنابراین ما هم فقط همان پیام را برمی‌گردانیم
+    return response;
+
+  } catch (e) {
+    rethrow; // خطا را به UI ارسال کن تا نمایش داده شود
+  }
+}
 }

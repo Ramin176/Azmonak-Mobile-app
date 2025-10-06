@@ -1,32 +1,30 @@
 import 'dart:convert';
-import 'package:azmoonak_app/models/category.dart';
-import 'package:azmoonak_app/models/course.dart';
 import 'package:azmoonak_app/models/question.dart';
 import 'package:azmoonak_app/models/quiz_attempt.dart';
+import 'package:azmoonak_app/models/subject.dart';
 import 'package:http/http.dart' as http;
-
 class ApiService {
-  // آدرس سرور شما. اگر از شبیه‌ساز اندروید استفاده می‌کنید، این آدرس درست است.
+ 
   // برای شبیه‌ساز iOS یا گوشی واقعی، IP کامپیوتر خود را جایگزین 10.0.2.2 کنید.
   static const String _baseUrl = "http://143.20.64.200/api";
-  
-   Future<List<Question>> fetchAllQuestionsForCourse(String courseId, String token) async {
-        final response = await http.get(
-            Uri.parse('$_baseUrl/questions/all/$courseId'),
-            headers: {'x-auth-token': token},
-        );
 
-        if (response.statusCode == 200) {
-            List<dynamic> data = json.decode(response.body);
-            return data.map((json) => Question.fromJson(json)).toList();
-        } else {
-            throw Exception('Failed to load all questions for course $courseId');
-        }
-    }
+   static String get baseUrl => _baseUrl;
+  Future<List<Question>> fetchAllQuestionsForSubject(String subjectId, String token) async {
+  final response = await http.get(
+      Uri.parse('$_baseUrl/questions/all/$subjectId'),
+      headers: {'x-auth-token': token},
+  );
 
+  if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Question.fromJson(json)).toList();
+  } else {
+      throw Exception('Failed to load all questions for subject $subjectId');
+  }
+}
     Future<Map<String, dynamic>> fetchCurrentUser(String token) async {
     final response = await http.get(
-        Uri.parse('$_baseUrl/auth/me'), // <-- یک API جدید در بک‌اند
+        Uri.parse('$_baseUrl/auth/me'),
         headers: {'x-auth-token': token},
     );
     if (response.statusCode == 200) {
@@ -35,7 +33,7 @@ class ApiService {
         throw Exception('Failed to fetch user data');
     }
 }
-  // تابع برای ثبت‌نام کاربر
+  
   Future<Map<String, dynamic>> register(String name, String email, String password) async {
     try {
       final response = await http.post(
@@ -47,11 +45,11 @@ class ApiService {
           'password': password,
         }),
       );
-      // قبل از decode، چک می‌کنیم که پاسخ موفقیت‌آمیز بوده یا نه
+     
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(response.body);
       } else {
-        // اگر خطا بود، پیام خطا را برمی‌گردانیم
+       
         return {'error': json.decode(response.body)['msg'] ?? 'An unknown error occurred'};
       }
     } catch (e) {
@@ -59,7 +57,7 @@ class ApiService {
     }
   }
 
-  // تابع برای ورود کاربر (این همان متدی است که وجود نداشت)
+
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http.post(
@@ -80,55 +78,57 @@ class ApiService {
     }
   }
   
-Future<List<Category>> fetchCategories(String token) async {
-  final response = await http.get(
-    Uri.parse('$_baseUrl/courses/categories'),
-    headers: {'x-auth-token': token},
-  );
-  if (response.statusCode == 200) {
-    List<dynamic> data = json.decode(response.body);
-    return data.map((json) => Category.fromJson(json)).toList();
-  } else {
-    throw Exception('Failed to load categories');
+  // Future<List<Subject>> fetchSubjectTree() async {
+  //   final response = await http.get(Uri.parse('$_baseUrl/subjects/tree'));
+  //   if (response.statusCode == 200) {
+  //     List<dynamic> data = json.decode(response.body);
+  //     return data.map((json) => Subject.fromJson(json)).toList();
+  //   } else {
+  //     throw Exception('Failed to load subject tree');
+  //   }
+  // }
+Future<List<Subject>> fetchSubjectTree() async {
+  print('ApiService: Sending request to fetch subject tree...');
+  try {
+    final response = await http.get(Uri.parse('$_baseUrl/subjects/tree'));
+    
+    print('ApiService: fetchSubjectTree response status code: ${response.statusCode}');
+        print('ApiService: RAW SUBJECT TREE JSON RECEIVED:\n${response.body}');
+
+    if (response.statusCode == 200) {
+      print('ApiService: Subject tree fetched successfully.');
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Subject.fromJson(json)).toList();
+    } else {
+      print('ApiService: Failed to load subject tree. Body: ${response.body}');
+      throw Exception('Failed to load subject tree');
+    }
+  } catch (e) {
+    print('ApiService: Network error while fetching subject tree: $e');
+    rethrow;
   }
 }
 
-Future<List<Course>> fetchCoursesByCategory(String categoryId, String token) async {
-  final response = await http.get(
-    Uri.parse('$_baseUrl/courses/category/$categoryId'),
-    headers: {'x-auth-token': token},
-  );
-  if (response.statusCode == 200) {
-    List<dynamic> data = json.decode(response.body);
-    return data.map((json) => Course.fromJson(json)).toList();
-  } else {
-    throw Exception('Failed to load courses for category');
+Future<List<Question>> fetchRandomQuestions(List<String> subjectIds, int limit, String token) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/questions/random'),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': token,
+      },
+      body: json.encode({
+        'subjectIds': subjectIds, 
+        'limit': limit,
+      }),
+    );
+    if (response.statusCode == 200) {
+      List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Question.fromJson(json)).toList();
+    } else {
+      print("Error fetching questions: ${response.statusCode} - ${response.body}");
+      throw Exception('Failed to fetch random questions');
+    }
   }
-}
-
-Future<List<Question>> fetchRandomQuestions(List<String> courseIds, int limit, String token) async {
-  final response = await http.post(
-    Uri.parse('$_baseUrl/questions/random'),
-    headers: {
-      'Content-Type': 'application/json', // <-- بسیار مهم
-      'x-auth-token': token,
-    },
-    body: json.encode({
-      'courseIds': courseIds, // <-- باید یک لیست از رشته‌ها باشد
-      'limit': limit,       // <-- باید یک عدد باشد
-    }),
-  );
-
-  if (response.statusCode == 200) {
-    List<dynamic> data = json.decode(response.body);
-    return data.map((json) => Question.fromJson(json)).toList();
-  } else {
-    // برای عیب‌یابی، بدنه پاسخ خطا را چاپ می‌کنیم
-    print("Error fetching questions: ${response.statusCode}");
-    print("Error body: ${response.body}");
-    throw Exception('Failed to fetch random questions');
-  }
-}
 Future<List<QuizAttempt>> fetchQuizHistory(String token) async {
   final response = await http.get(
     Uri.parse('$_baseUrl/quiz-attempts/my-history'),
@@ -136,43 +136,82 @@ Future<List<QuizAttempt>> fetchQuizHistory(String token) async {
   );
 
   if (response.statusCode == 200) {
-    // ۱. ابتدا داده‌ها را به صورت یک لیست داینامیک دریافت می‌کنیم
+    
     List<dynamic> data = json.decode(response.body);
     
-    // ۲. سپس با استفاده از map، هر آیتم JSON را به یک آبجکت QuizAttempt تبدیل می‌کنیم
-    // و در نهایت یک لیست از نوع QuizAttempt برمی‌گردانیم.
+    
     return data.map((json) => QuizAttempt.fromJson(json)).toList();
   } else {
     throw Exception('Failed to load quiz history');
   }
 }
-Future<QuizAttempt> submitExam(List<String> courseIds, List<Map<String, dynamic>> answers, String token) async {
+ Future<QuizAttempt> submitExam(List<String> subjectIds, List<Map<String, dynamic>> answers, String token) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/quiz-attempts/submit'),
       headers: {
         'Content-Type': 'application/json',
         'x-auth-token': token,
       },
-      // --- تغییر اصلی اینجاست ---
-      // ما حالا 'courseIds' (به صورت آرایه) را به جای 'courseId' ارسال می‌کنیم
       body: json.encode({
-        'courseIds': courseIds,
+        'subjectIds': subjectIds,
         'answers': answers,
       }),
-      // ------------------------
     );
-
     if (response.statusCode == 201) {
-      // پاسخ موفقیت‌آمیز بود، آن را به آبجکت QuizAttempt تبدیل کن
       return QuizAttempt.fromJson(json.decode(response.body));
     } else {
-      // برای عیب‌یابی بهتر، پاسخ خطا را چاپ می‌کنیم
-      print("Submit Exam Error: ${response.statusCode}");
-      print("Response Body: ${response.body}");
       throw Exception('Failed to submit exam results');
     }
   }
+// Future<Map<String, dynamic>> purchaseSubject(String subjectId, String duration, String token) async {
+//     final response = await http.post(
+//       Uri.parse('$_baseUrl/purchase/subject'),
+//       headers: {
+//         'Content-Type': 'application/json',
+//         'x-auth-token': token,
+//       },
+//       body: json.encode({
+//         'subjectId': subjectId,
+//         'duration': duration,
+//       }),
+//     );
+//      if (response.statusCode >= 200 && response.statusCode < 300) {
+//         return json.decode(response.body);
+//       } else {
+//         throw Exception(json.decode(response.body)['msg'] ?? 'Failed to purchase subject');
+//       }
+//   }
 
+Future<Map<String, dynamic>> createSubjectOrder({
+  required String subjectId,
+  required String planKey,
+  required String planDuration,
+  required String planPrice,
+  required String token,
+}) async {
+  
+  final response = await http.post(
+    Uri.parse('$_baseUrl/orders/subject'), // <-- آدرس API جدید
+    headers: {
+      'Content-Type': 'application/json',
+      'x-auth-token': token,
+    },
+    body: json.encode({
+      'subjectId': subjectId,
+      'planKey': planKey,
+      'planDuration': planDuration,
+      'planPrice': planPrice,
+    }),
+  );
+
+  final responseBody = json.decode(response.body);
+
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    return responseBody;
+  } else {
+    throw Exception(responseBody['msg'] ?? 'Failed to create order');
+  }
+}
 
    Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
@@ -212,14 +251,36 @@ static Future<List<Question>> fetchTrialQuestions() async {
     throw Exception('Failed to fetch trial questions');
   }
 }
+// Future<Map<String, dynamic>> fetchSettings() async {
+//     final response = await http.get(Uri.parse('$_baseUrl/settings'));
+//     if (response.statusCode == 200) {
+//         return json.decode(response.body);
+//     } else {
+//         throw Exception('Failed to load settings');
+//     }
+// }
 Future<Map<String, dynamic>> fetchSettings() async {
+  print('ApiService: Sending request to fetch settings...');
+  try {
     final response = await http.get(Uri.parse('$_baseUrl/settings'));
+
+    print('ApiService: fetchSettings response status code: ${response.statusCode}');
+    
     if (response.statusCode == 200) {
-        return json.decode(response.body);
+      print('ApiService: Settings fetched successfully.');
+      return json.decode(response.body);
     } else {
-        throw Exception('Failed to load settings');
+      // اگر کد وضعیت خطا بود، متن کامل خطا را چاپ کن
+      print('ApiService: Failed to load settings. Body: ${response.body}');
+      throw Exception('Failed to load settings');
     }
+  } catch (e) {
+    // اگر خطای شبکه رخ داد (مثلاً اتصال قطع شد)، آن را چاپ کن
+    print('ApiService: Network error while fetching settings: $e');
+    rethrow; // خطا را دوباره پرتاب کن تا لایه بالایی آن را مدیریت کند
+  }
 }
+
 Future<Map<String, dynamic>> updateUserDetails(String name, String token) async {
   final response = await http.put(
     Uri.parse('$_baseUrl/users/updatedetails'),

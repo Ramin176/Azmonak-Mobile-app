@@ -7,7 +7,7 @@ class Question extends HiveObject{
   @HiveField(0)
   final String id;
   @HiveField(1)
-  final String courseId;
+  final String subjectId;
   @HiveField(2)
   final String text;
   @HiveField(3)
@@ -25,7 +25,7 @@ class Question extends HiveObject{
   Question( {
     required this.score,
     required this.id,
-    required this.courseId,
+    required this.subjectId,
     required this.text,
     required this.type,
     required this.options,
@@ -36,24 +36,35 @@ class Question extends HiveObject{
 
   factory Question.fromJson(Map<String, dynamic> json) {
     return Question(
-      id: json['_id'],
-      courseId: json['course'],
-      text: json['text'],
-      type: json['type'],
-      options: (json['options'] as List<dynamic>?)
-          ?.map((opt) => {'text': opt['text'].toString()})
-          .toList() ?? [],
-        explanation: json['explanation'] ?? '',
-      correctAnswerIndex: json['correctAnswerIndex'],
-      score: json['score'] ?? 1,
-       imageUrl: json['imageUrl'],
+      // id: json['_id'],
+      // subjectId: json['subject'] ?? 'trial_subject',
+      // text: json['text'],
+      // type: json['type'],
+      // options: (json['options'] as List<dynamic>?)
+      //     ?.map((opt) => {'text': opt['text'].toString()})
+      //     .toList() ?? [],
+      //   explanation: json['explanation'] ?? '',
+      // correctAnswerIndex: json['correctAnswerIndex'],
+      // score: json['score'] ?? 1,
+      //  imageUrl: json['imageUrl'],
+        id: json['_id'] ?? '', // اگر آیدی null بود، رشته خالی بگذار
+    subjectId: json['subject'] ?? 'trial_subject', // <--- اصلاح کلیدی
+    text: json['text'] ?? 'متن سوال یافت نشد', // برای اطمینان
+    type: json['type'] ?? 'multiple_choice',
+    options: (json['options'] as List<dynamic>?)
+        ?.map((opt) => {'text': opt['text']?.toString() ?? ''})
+        .toList() ?? [],
+    explanation: json['explanation'] ?? '',
+    correctAnswerIndex: json['correctAnswerIndex'] ?? 0,
+    score: json['score'] ?? 1,
+    imageUrl: json['imageUrl'], // این چون از قبل nullable است، مشکلی ندارد
     );
   }
   
   Map<String, dynamic> toDbMap() {
     return {
       'id': id,
-      'courseId': courseId,
+      'subjectId': subjectId,
       'text': text,
       'type': type,
       'options': json.encode(options), // به صورت رشته JSON
@@ -64,7 +75,7 @@ class Question extends HiveObject{
     return Question(
       score: dbData['score'] ?? 0,
       id: dbData['id'],
-      courseId: dbData['courseId'],
+      subjectId: dbData['subjectId'],
       text: dbData['text'],
       type: dbData['type'],
       options: (json.decode(dbData['options']) as List<dynamic>)

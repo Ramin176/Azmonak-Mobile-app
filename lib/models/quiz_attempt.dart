@@ -10,7 +10,7 @@ class QuizAttempt extends HiveObject {
   @HiveField(2)
   final DateTime createdAt;
   @HiveField(3)
-  final String? courseName;
+  final String? subjectName;
   @HiveField(4)
   final int? totalQuestions;
   @HiveField(5)
@@ -28,7 +28,7 @@ class QuizAttempt extends HiveObject {
     required this.id,
     required this.percentage,
     required this.createdAt,
-    this.courseName,
+    this.subjectName,
     this.totalQuestions,
     this.correctAnswers,
     this.wrongAnswers,
@@ -42,7 +42,7 @@ class QuizAttempt extends HiveObject {
       id: json['_id'] as String? ?? 'error_id_${DateTime.now().millisecondsSinceEpoch}',
       percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
-      courseName: json['courseName'] as String? ?? 'آزمون عمومی',
+      subjectName: json['subjectName'] as String? ?? 'آزمون عمومی',
       totalQuestions: json['totalQuestions'] as int?,
       correctAnswers: json['correctAnswers'] as int?,
       wrongAnswers: json['wrongAnswers'] as int?,
@@ -57,7 +57,7 @@ class QuizAttempt extends HiveObject {
       'id': id,
       'percentage': percentage,
       'createdAt': createdAt.toIso8601String(),
-      'courseName': courseName,
+      'subjectName': subjectName,
       'totalQuestions': totalQuestions,
       'correctAnswers': correctAnswers,
       'wrongAnswers': wrongAnswers,

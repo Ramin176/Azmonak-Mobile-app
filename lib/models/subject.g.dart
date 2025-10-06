@@ -1,38 +1,44 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'course.dart';
+part of 'subject.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class CourseAdapter extends TypeAdapter<Course> {
+class SubjectAdapter extends TypeAdapter<Subject> {
   @override
-  final int typeId = 1;
+  final int typeId = 9;
 
   @override
-  Course read(BinaryReader reader) {
+  Subject read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return Course(
+    return Subject(
       id: fields[0] as String,
       name: fields[1] as String,
-      categoryId: fields[2] as String,
+      parent: fields[2] as String?,
+      price: fields[3] as double,
+      children: (fields[4] as List).cast<Subject>(),
     );
   }
 
   @override
-  void write(BinaryWriter writer, Course obj) {
+  void write(BinaryWriter writer, Subject obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.categoryId);
+      ..write(obj.parent)
+      ..writeByte(3)
+      ..write(obj.price)
+      ..writeByte(4)
+      ..write(obj.children);
   }
 
   @override
@@ -41,7 +47,7 @@ class CourseAdapter extends TypeAdapter<Course> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is CourseAdapter &&
+      other is SubjectAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

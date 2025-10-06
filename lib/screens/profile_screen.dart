@@ -526,7 +526,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           AdaptiveTextSize(
-                            text: attempt.courseName ?? 'آزمون عمومی',
+                            text: attempt.subjectName ?? 'آزمون عمومی',
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: _getResponsiveSize(context, 16),

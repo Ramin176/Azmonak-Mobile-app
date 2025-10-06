@@ -12,6 +12,7 @@ import 'package:azmoonak_app/services/api_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/api_service.dart';
 import 'dart:async'; // برای تایمر
 import '../models/question.dart';
 // ... import های دیگر
@@ -81,86 +82,7 @@ static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
       }
     });
   }
-// void _submitAndShowResults() async {
-//   showDialog(context: context, barrierDismissible: false, builder: (ctx) => const Center(child: CircularProgressIndicator()));
-//    final user = Provider.of<AuthProvider>(context, listen: false).user;
-//   try {
-//     final connectivityResult = await (Connectivity().checkConnectivity());
-//     final apiService = ApiService();
-//     final token = Provider.of<AuthProvider>(context, listen: false).token;
 
-//     if (token == null || widget.courseIds.isEmpty) {
-//       throw Exception('اطلاعات آزمون ناقص است. لطفا دوباره تلاش کنید.');
-//     }
-    
-//     final answersForApi = _userAnswers.entries.map((e) => {'questionId': e.key, 'answerIndex': e.value}).toList();
-//     QuizAttempt result;
-//  final questionsForReview = widget.questions.map((q) {
-//       return AttemptQuestion(
-//         id: q.id,
-//         text: q.text,
-//         options: q.options,
-//         correctAnswerIndex: q.correctAnswerIndex,
-//       );
-//     }).toList();
-//      final details = AttemptDetails(
-//       attemptId: result.id,
-//       questions: questionsForReview, // <-- حالا از لیست تبدیل شده استفاده می‌کنیم
-//       userAnswers: _userAnswers,
-//     );
-//     await _hiveService.saveAttemptDetails(details, user!.id);
-//     if (connectivityResult != ConnectivityResult.none) {
-//       // --- حالت آنلاین ---
-//       print("آنلاین: در حال ارسال نتایج به سرور...");
-//       // حالا لیست کامل ID ها را ارسال می‌کنیم
-//       result = await apiService.submitExam(widget.courseIds, answersForApi, token);
-//       result.isSynced = true;
-//     } else {
-//       // --- حالت آفلاین ---
-//       print("آفلاین: در حال محاسبه و ذخیره نتایج به صورت محلی...");
-//       int correct = 0;
-//       widget.questions.forEach((q) {
-//         if (_userAnswers.containsKey(q.id) && _userAnswers[q.id] == q.correctAnswerIndex) { correct++; }
-//       });
-//       result = QuizAttempt(
-//         id: 'offline_${DateTime.now().millisecondsSinceEpoch}',
-//         percentage: (correct / widget.questions.length) * 100,
-//         createdAt: DateTime.now(),
-//         correctAnswers: correct,
-//         totalQuestions: widget.questions.length,
-//         isSynced: false,
-//       );
-//     }
-    
-//     final hiveService = HiveService();
-//     await _hiveService.saveQuizAttempt(result, user!.id);
-//      final details = AttemptDetails(
-//       attemptId: result.id,
-//       questions: widget.questions,
-//       userAnswers: _userAnswers,
-//     );
-//       await _hiveService.saveQuizAttempt(result, user!.id);
-//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
-//     if (mounted) {
-//         Navigator.of(context).pushReplacement(
-//             MaterialPageRoute(
-//                 builder: (ctx) => ResultScreen(
-//                     attempt: result,
-//                     questions: widget.questions,
-//                     userAnswers: _userAnswers,
-//                 ),
-//             ),
-//         );
-//     }
-//   } catch (e) {
-//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
-//     if (mounted) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//             SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}'))
-//         );
-//     }
-//   }
-// }
 Future<bool> hasNetwork() async {
   try {
     final result = await InternetAddress.lookup('google.com');
@@ -216,7 +138,7 @@ void _submitAndShowResults() async {
         correctAnswers: correct,
         totalQuestions: widget.questions.length,
         isSynced: false,
-        courseName: widget.courseIds.length == 1
+        subjectName: widget.courseIds.length == 1
             ? "Single Course"
             : "آزمون عمومی",
       );
@@ -265,96 +187,12 @@ void _submitAndShowResults() async {
   }
 }
 
-// void _submitAndShowResults() async {
-//   showDialog(context: context, barrierDismissible: false, builder: (ctx) => const Center(child: CircularProgressIndicator()));
-
-//   try {
-//     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-//     final user = authProvider.user;
-//     final token = authProvider.token;
-//     final connectivityResult = await (Connectivity().checkConnectivity());
-//     final answersForApi = _userAnswers.entries.map((e) => {'questionId': e.key, 'answerIndex': e.value}).toList();
-    
-//     // متغیر result را اینجا با مقدار اولیه تعریف می‌کنیم
-//     QuizAttempt result;
-
-//     if (connectivityResult != ConnectivityResult.none && token != null && user != null) {
-//       // --- حالت آنلاین ---
-//       final apiService = ApiService();
-//       result = await apiService.submitExam(widget.courseIds, answersForApi, token);
-//       result.isSynced = true;
-//     } else {
-//       // --- حالت آفلاین ---
-//       int correct = 0;
-//       widget.questions.forEach((q) {
-//         if (_userAnswers.containsKey(q.id) && _userAnswers[q.id] == q.correctAnswerIndex) { correct++; }
-//       });
-//       result = QuizAttempt(
-//         id: 'offline_${DateTime.now().millisecondsSinceEpoch}',
-//         percentage: (correct / widget.questions.length) * 100,
-//         createdAt: DateTime.now(),
-//         correctAnswers: correct,
-//         totalQuestions: widget.questions.length,
-//         isSynced: false,
-//         courseName: widget.courseIds.length == 1 ? "Single Course" : "آزمون عمومی", // یک نام پیش‌فرض
-//       );
-//     }
-    
-//     // --- ذخیره در Hive (بخش کلیدی) ---
-//     final hiveService = HiveService();
-    
-//     // ۱. ذخیره نتیجه کلی
-//     if(user != null) await hiveService.saveQuizAttempt(result, user.id);
-
-//     // ۲. تبدیل Question ها به AttemptQuestion برای ذخیره جزئیات
-//     final questionsForReview = widget.questions.map((q) {
-//   return AttemptQuestion(
-//     id: q.id,
-//     text: q.text,
-//     // --- تغییر اصلی: فقط متن گزینه‌ها را استخراج می‌کنیم ---
-//     options: q.options.map((opt) => opt['text'] ?? '').toList(),
-//     correctAnswerIndex: q.correctAnswerIndex,
-//   );
-// }).toList();
-
-//     // ۳. ساخت آبجکت جزئیات
-//    final details = AttemptDetails(
-//   attemptId: result.id,
-//   questions: questionsForReview,
-//   userAnswers: _userAnswers, // <-- اینجا بدون تغییر است
-// );
-
-//     // ۴. ذخیره جزئیات
-//     if(user != null) await hiveService.saveAttemptDetails(details, user.id);
-    
-//     // ------------------------------------
-
-//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
-//     if (mounted) {
-//         Navigator.of(context).pushReplacement(
-//             MaterialPageRoute(
-//                 builder: (ctx) => ResultScreen(
-//                     attempt: result,
-//                     questions: widget.questions,
-//                     userAnswers: _userAnswers,
-//                 ),
-//             ),
-//         );
-//     }
-//   } catch (e) {
-//     if (mounted) Navigator.of(context, rootNavigator: true).pop();
-//     if (mounted) {
-//         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطا در ثبت نتایج: ${e.toString()}')));
-//     }
-//   }
-// }
   @override
   Widget build(BuildContext context) {
     final currentQuestion = widget.questions[_currentIndex];
     final progress = (_currentIndex + 1) / widget.questions.length;
-    final isBookmarked = _bookmarkedQuestions.contains(currentQuestion.id);
  final fullImageUrl = currentQuestion.imageUrl != null 
-      ? "http://143.20.64.200${currentQuestion.imageUrl}" // برای شبیه‌ساز اندروید
+      ? "${ApiService.baseUrl.replaceAll('/api', '')}${currentQuestion.imageUrl}" // برای شبیه‌ساز اندروید
       : null;
     return Scaffold(
       backgroundColor: backgroundLight,
@@ -371,17 +209,7 @@ void _submitAndShowResults() async {
             fontFamily: 'Vazirmatn',
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-              color: isBookmarked ? accentYellow : Colors.white,
-              size: _getResponsiveSize(context, 26),
-            ),
-            onPressed: _toggleBookmark,
-          ),
-          SizedBox(width: _getResponsiveSize(context, 8)),
-        ],
+        
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(_getResponsiveSize(context, 6.0)),
           child: TweenAnimationBuilder<double>(
@@ -464,7 +292,6 @@ void _submitAndShowResults() async {
             ),
             SizedBox(height: _getResponsiveSize(context, 24)),
 
-            // لیست گزینه‌ها
             Expanded(
               child: ListView.builder(
                 itemCount: currentQuestion.options.length,
@@ -474,11 +301,9 @@ void _submitAndShowResults() async {
               ),
             ),
 
-            // نمایش توضیحات (فقط بعد از پاسخ دادن)
             if (_isAnswered && currentQuestion.explanation.isNotEmpty)
               _buildExplanationCard(currentQuestion.explanation),
 
-            // دکمه بعدی (فقط بعد از پاسخ دادن ظاهر می‌شود)
             if (_isAnswered)
               Padding(
                 padding: EdgeInsets.only(top: _getResponsiveSize(context, 16.0)),
@@ -516,20 +341,17 @@ void _submitAndShowResults() async {
 
     if (_isAnswered) {
       if (index == question.correctAnswerIndex) {
-        // گزینه صحیح
         borderColor = primaryTeal; // از پالت Teal
         backgroundColor = primaryTeal.withOpacity(0.1);
         trailingIcon = Icons.check_circle_rounded;
         iconColor = primaryTeal;
       } else if (index == _selectedOptionIndex) {
-        // گزینه غلطی که کاربر انتخاب کرده
         borderColor = Colors.red.shade600;
         backgroundColor = Colors.red.shade50.withOpacity(0.7);
         trailingIcon = Icons.cancel_rounded;
         iconColor = Colors.red.shade600;
       }
     } else if (index == _selectedOptionIndex) {
-      // گزینه انتخاب شده قبل از پاسخ نهایی
       borderColor = lightTeal;
       backgroundColor = lightTeal.withOpacity(0.05);
     }

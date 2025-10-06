@@ -20,7 +20,7 @@ class QuizAttemptAdapter extends TypeAdapter<QuizAttempt> {
       id: fields[0] as String,
       percentage: fields[1] as double,
       createdAt: fields[2] as DateTime,
-      courseName: fields[3] as String?,
+      subjectName: fields[3] as String?,
       totalQuestions: fields[4] as int?,
       correctAnswers: fields[5] as int?,
       wrongAnswers: fields[6] as int?,
@@ -41,7 +41,7 @@ class QuizAttemptAdapter extends TypeAdapter<QuizAttempt> {
       ..writeByte(2)
       ..write(obj.createdAt)
       ..writeByte(3)
-      ..write(obj.courseName)
+      ..write(obj.subjectName)
       ..writeByte(4)
       ..write(obj.totalQuestions)
       ..writeByte(5)

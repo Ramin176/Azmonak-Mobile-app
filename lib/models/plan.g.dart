@@ -20,19 +20,22 @@ class PlanAdapter extends TypeAdapter<Plan> {
       duration: fields[0] as String,
       price: fields[1] as String,
       questionLimit: fields[2] as int,
+      planKey: fields[3] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Plan obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.duration)
       ..writeByte(1)
       ..write(obj.price)
       ..writeByte(2)
-      ..write(obj.questionLimit);
+      ..write(obj.questionLimit)
+      ..writeByte(3)
+      ..write(obj.planKey);
   }
 
   @override

@@ -19,7 +19,7 @@ class QuestionAdapter extends TypeAdapter<Question> {
     return Question(
       score: fields[7] as int,
       id: fields[0] as String,
-      courseId: fields[1] as String,
+      subjectId: fields[1] as String,
       text: fields[2] as String,
       type: fields[3] as String,
       options: (fields[4] as List)
@@ -38,7 +38,7 @@ class QuestionAdapter extends TypeAdapter<Question> {
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.courseId)
+      ..write(obj.subjectId)
       ..writeByte(2)
       ..write(obj.text)
       ..writeByte(3)
