@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:azmoonak_app/helpers/api_exceptions.dart';
 import 'package:azmoonak_app/models/question.dart';
 import 'package:azmoonak_app/models/quiz_attempt.dart';
 import 'package:azmoonak_app/models/subject.dart';
@@ -14,23 +15,25 @@ class ApiService {
       Uri.parse('$_baseUrl/questions/all/$subjectId'),
       headers: {'x-auth-token': token},
   );
-
-  if (response.statusCode == 200) {
-      List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Question.fromJson(json)).toList();
-  } else {
-      throw Exception('Failed to load all questions for subject $subjectId');
-  }
+  final responseBody = json.decode(response.body);
+    if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Question.fromJson(json)).toList();
+    } else {
+        final responseBody = json.decode(response.body);
+        throw ApiException(responseBody['msg'] ?? 'Failed to load questions', code: responseBody['code']);
+    }
 }
     Future<Map<String, dynamic>> fetchCurrentUser(String token) async {
     final response = await http.get(
         Uri.parse('$_baseUrl/auth/me'),
         headers: {'x-auth-token': token},
     );
+      final responseBody = json.decode(response.body);
     if (response.statusCode == 200) {
         return json.decode(response.body);
     } else {
-        throw Exception('Failed to fetch user data');
+         throw ApiException(responseBody['msg'] ?? 'Failed to fetch user data', code: responseBody['code']);
     }
 }
   

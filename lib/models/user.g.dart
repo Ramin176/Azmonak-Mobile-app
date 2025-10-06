@@ -24,13 +24,14 @@ class AppUserAdapter extends TypeAdapter<AppUser> {
       profileImagePath: fields[4] as String?,
       isActive: fields[5] as bool,
       role: fields[6] as String,
+      status: fields[7] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppUser obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +45,9 @@ class AppUserAdapter extends TypeAdapter<AppUser> {
       ..writeByte(5)
       ..write(obj.isActive)
       ..writeByte(6)
-      ..write(obj.role);
+      ..write(obj.role)
+      ..writeByte(7)
+      ..write(obj.status);
   }
 
   @override

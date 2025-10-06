@@ -49,7 +49,15 @@ Future<List<Subject>> getSubjects(String userId) async {
     filtered.shuffle();
     return filtered.take(limit).toList();
   }
-  
+  Future<List<Question>> getAllQuestions(String userId) async {
+  try {
+    final box = await _openUserBox<Question>('questions', userId);
+    return box.values.toList();
+  } catch (e) {
+    print("Error getting all local questions: $e");
+    return [];
+  }
+}
   // --- عملیات مربوط به نتایج آزمون کاربر ---
   Future<void> saveQuizAttempt(QuizAttempt attempt, String userId) async {
       final box = await _openUserBox<QuizAttempt>('quiz_attempts', userId);

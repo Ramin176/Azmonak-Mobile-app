@@ -25,6 +25,9 @@ class AppUser extends HiveObject {
   @HiveField(6)
   final String role;
 
+ @HiveField(7)
+  String status; // وضعیت را به صورت رشته ذخیره کنید
+
 
   AppUser({
     required this.id,
@@ -34,6 +37,7 @@ class AppUser extends HiveObject {
     this.profileImagePath,
     required this.isActive,
     required this.role,
+     this.status = 'active',
   });
 
   // Getter هوشمند جدید برای چک کردن وضعیت Premium
@@ -59,11 +63,16 @@ class AppUser extends HiveObject {
       purchasedSubjects: purchasedSubjects,
       profileImagePath: profileImagePath ?? this.profileImagePath,
       isActive: isActive,
+         status: status ?? this.status,
       role: role,
     );
   }
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
+     print("---------- DEBUG AppUser.fromJson ----------");
+  print("INPUT JSON: $json");
+  print("STATUS FIELD: ${json['status']}");
+  print("------------------------------------------");
     return AppUser(
       id: json['_id'],
       name: json['name'],
@@ -71,7 +80,8 @@ class AppUser extends HiveObject {
       purchasedSubjects: (json['purchasedSubjects'] as List<dynamic>? ?? [])
           .map((sub) => PurchasedSubject.fromJson(sub))
           .toList(),
-      isActive: json['isActive'] ?? false,
+      isActive: json['isActive'] ?? true,
+       status: json['status'] ?? 'active',
       role: json['role'] ?? 'user',
     );
   }

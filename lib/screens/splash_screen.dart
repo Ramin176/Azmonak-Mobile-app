@@ -1,5 +1,6 @@
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
 import 'package:azmoonak_app/models/question.dart';
+import 'package:azmoonak_app/screens/deactivated_screen.dart';
 import 'package:azmoonak_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -24,30 +25,64 @@ class _SplashScreenState extends State<SplashScreen> {
     //   _checkAuthAndNavigate();
     // });
   }
-
-  Future<void> _checkAuthAndNavigate() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+//اصل
+  // Future<void> _checkAuthAndNavigate() async {
+  //   await Future.delayed(const Duration(milliseconds: 1500));
     
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final bool isLoggedIn = await authProvider.tryAutoLogin();
-     await Future.wait([
-      _syncAppSettings(), // <-- همگام‌سازی تنظیمات (شامل درباره ما)
-      _syncTrialQuestions(), // همگام‌سازی سوالات آزمایشی
-    ]);
-     await Future.delayed(const Duration(milliseconds: 500));
+  //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  //   final bool isLoggedIn = await authProvider.tryAutoLogin();
+  //    await Future.wait([
+  //     _syncAppSettings(), // <-- همگام‌سازی تنظیمات (شامل درباره ما)
+  //     _syncTrialQuestions(), // همگام‌سازی سوالات آزمایشی
+  //   ]);
+  //    await Future.delayed(const Duration(milliseconds: 500));
       
-    if (mounted) {
-      if (isLoggedIn) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (ctx) => const MainScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (ctx) => const LoginScreen()),
-        );
-      }
+  //   if (mounted) {
+  //     if (isLoggedIn) {
+  //       Navigator.of(context).pushReplacement(
+  //         MaterialPageRoute(builder: (ctx) => const MainScreen()),
+  //       );
+  //     } else {
+  //       Navigator.of(context).pushReplacement(
+  //         MaterialPageRoute(builder: (ctx) => const LoginScreen()),
+  //       );
+  //     }
+  //   }
+  // }
+  Future<void> _checkAuthAndNavigate() async {
+  // همگام‌سازی‌های اولیه را می‌توان همزمان با لاگین خودکار انجام داد
+  await Future.wait([
+    _syncAppSettings(),
+    _syncTrialQuestions(),
+    // کمی تاخیر برای نمایش اسپلش اسکرین
+    Future.delayed(const Duration(milliseconds: 1500)), 
+  ]);
+
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  
+  // ۱. تلاش برای لاگین خودکار و رفرش کردن اطلاعات کاربر از سرور
+  final bool isLoggedIn = await authProvider.tryAutoLogin();
+
+  if (mounted) {
+    // ۲. حالا که اطلاعات کاربر آپدیت شده، وضعیت او را چک می‌کنیم
+    if (authProvider.isDeactivated) {
+      // اگر کاربر غیرفعال بود، او را به صفحه DeactivatedScreen بفرست
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (ctx) => const DeactivatedScreen()),
+      );
+    } 
+    // ۳. اگر فعال بود، بر اساس وضعیت لاگین تصمیم بگیر
+    else if (isLoggedIn) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (ctx) => const MainScreen()),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (ctx) => const LoginScreen()),
+      );
     }
   }
+}
  Future<void> _syncAppSettings() async {
     try {
       final settings = await ApiService().fetchSettings();
@@ -98,10 +133,8 @@ Future<void> _syncTrialQuestions() async {
     // ===== این بخش خطا را با جزئیات کامل چاپ می‌کند =====
     print("=================================================");
     print("[DEBUG] خطای بسیار مهم در هنگام فراخوانی API رخ داد!");
-    print("نوع خطا: ${e.runtimeType}");
-    print("متن خطا: $e");
-    print("Stacktrace: \n$stacktrace");
-    print("=================================================");
+   
+
   }
 }
   @override
@@ -114,10 +147,13 @@ Future<void> _syncTrialQuestions() async {
           children: [
             // اینجا می‌توانید لوگوی خود را قرار دهید
             Text(
-              'آزمونک',
+              'آزمونک طبی',
               style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 20), Text(
+              'MedQuiz',
+              style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
             CircularProgressIndicator(color: Colors.white),
           ],
         ),

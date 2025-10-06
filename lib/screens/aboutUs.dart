@@ -67,7 +67,7 @@ class _AboutUsScreenState extends State<AboutUsScreen> {
             Icon(Icons.school_rounded, size: 80, color: Theme.of(context).primaryColor),
             const SizedBox(height: 16),
             Text(
-              'آزمونک',
+              'آزمونک طبی',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).primaryColor,

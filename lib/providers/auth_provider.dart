@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:azmoonak_app/helpers/api_exceptions.dart';
 import 'package:azmoonak_app/helpers/hive_db_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -106,30 +107,65 @@ Future<void> updateProfileImage(String path) async {
     await _user!.save(); // آپدیت کردن آبجکت کاربر در Hive
     notifyListeners(); // اطلاع‌رسانی به تمام صفحات
   }
+
   
-  Future<bool> tryAutoLogin() async {
-    try {
-      final token = await _storage.read(key: 'token');
-      final userBox = await Hive.openBox<AppUser>('userBox');
-      final user = userBox.get('currentUser');
-      if (token != null && user != null && user.id.isNotEmpty) {
-         final prefs = await SharedPreferences.getInstance();
-      final imagePath = prefs.getString('profile_image_path_${user.id}'); 
-      _user = user.copyWith(profileImagePath: imagePath);
-        _token = token;
-        _user = user;
-        notifyListeners();
-        // رفرش در پس‌زمینه برای گرفتن آخرین وضعیت اشتراک
-        refreshUser(); 
-        return true;
-      }
-      await logout();
-      return false;
-    } catch (e) {
-      await logout();
-      return false;
-    }
+Future<bool> tryAutoLogin() async {
+  final token = await _storage.read(key: 'token');
+  if (token == null) {
+    await logout(); // اطمینان از پاک بودن همه چیز
+    return false;
   }
+
+  _token = token; // توکن را در حافظه برنامه ست کن
+
+  try {
+    // ===== این بخش کلیدی است: منتظر رفرش می‌مانیم =====
+    await refreshUser();
+    
+    // حالا که رفرش تمام شده، وضعیت isDeactivated آپدیت شده است
+    if (_isDeactivated) {
+      // اگر کاربر غیرفعال است، لاگین موفق نیست
+      return false; 
+    }
+    
+    // اگر کاربر فعال بود، اطلاعات محلی را هم بارگذاری کن
+    final userBox = await Hive.openBox<AppUser>('userBox');
+    _user = userBox.get('currentUser');
+    notifyListeners();
+    
+    return _user != null;
+
+  } catch (e) {
+    // اگر رفرش به هر دلیلی (مثلاً توکن نامعتبر) خطا داد، لاگ اوت کن
+    print("Auto-login failed during user refresh: $e");
+    await logout();
+    return false;
+  }
+}
+  //اصل
+  // Future<bool> tryAutoLogin() async {
+  //   try {
+  //     final token = await _storage.read(key: 'token');
+  //     final userBox = await Hive.openBox<AppUser>('userBox');
+  //     final user = userBox.get('currentUser');
+  //     if (token != null && user != null && user.id.isNotEmpty) {
+  //        final prefs = await SharedPreferences.getInstance();
+  //     final imagePath = prefs.getString('profile_image_path_${user.id}'); 
+  //     _user = user.copyWith(profileImagePath: imagePath);
+  //       _token = token;
+  //       _user = user;
+  //       notifyListeners();
+  //       // رفرش در پس‌زمینه برای گرفتن آخرین وضعیت اشتراک
+  //       refreshUser(); 
+  //       return true;
+  //     }
+  //     await logout();
+  //     return false;
+  //   } catch (e) {
+  //     await logout();
+  //     return false;
+  //   }
+  // }
   
   // Future<void> refreshUser() async {
   //   if (_token == null) return;
@@ -163,12 +199,6 @@ Future<void> updateProfileImage(String path) async {
     try {
       final userData = await _apiService.fetchCurrentUser(_token!);
       final serverUser = AppUser.fromJson(userData);
-      
-      if (!serverUser.isActive) {
-        _isDeactivated = true;
-        notifyListeners();
-        return; 
-      }
       _isDeactivated = false; 
       serverUser.profileImagePath = _user?.profileImagePath;
       _user = serverUser;
@@ -176,6 +206,15 @@ Future<void> updateProfileImage(String path) async {
       final userBox = await Hive.openBox<AppUser>('userBox');
       await userBox.put('currentUser', _user!);
       notifyListeners();
+       } on ApiException catch (e) { // <--- گرفتن خطای سفارشی
+      print("AuthProvider: Caught an API Exception during refresh: ${e.message}, Code: ${e.code}");
+      
+      if (e.code == 'USER_DEACTIVATED' ) {
+        _isDeactivated = true;
+        notifyListeners();
+        return; 
+      } 
+    
     } catch (e) {
       print("AuthProvider: Failed to refresh user: $e");
     }

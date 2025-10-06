@@ -6,6 +6,7 @@ import 'package:azmoonak_app/models/purchased_subject.dart';
 import 'package:azmoonak_app/models/quiz_attempt.dart';
 import 'package:azmoonak_app/models/subject.dart';
 import 'package:azmoonak_app/models/user.dart';
+import 'package:azmoonak_app/screens/deactivated_screen.dart';
 import 'package:azmoonak_app/screens/profile_screen.dart';
 import 'package:azmoonak_app/screens/trial_quiz_screen.dart';
 import 'package:flutter/material.dart';
@@ -18,8 +19,6 @@ import '../services/api_service.dart';
 import '../models/question.dart';
 import 'premium_screen.dart';
 import 'test_setup_screen.dart';
-
-
 
 class HomeScreen extends StatefulWidget {
   final bool isPickerMode;
@@ -38,7 +37,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   String _errorMessage = '';
   bool _isInit = true;
-  StreamSubscription? _connectivitySubscription;
   // --- پالت رنگی ---
   static const Color primaryTeal = Color(0xFF008080);
   static const Color lightTeal = Color(0xFF4DB6AC);
@@ -145,6 +143,19 @@ Future<void> _loadInitialData() async {
   try {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
      await authProvider.refreshUser(); 
+
+if (authProvider.isDeactivated) {
+      // اگر در حین رفرش متوجه شدیم کاربر غیرفعال شده،
+      // او را به صفحه DeactivatedScreen هدایت کن
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (ctx) => DeactivatedScreen()),
+          (route) => false, // تمام صفحات قبلی را حذف کن
+        );
+      }
+      return; // ادامه تابع را اجرا نکن
+    }
+    print("state: ${authProvider.isDeactivated}");
     final user = authProvider.user;
 
     if (user == null) {
@@ -575,7 +586,7 @@ List<Subject> _buildTreeFromFlatList(List<Subject> flatList) {
                     ),
                   ),
                   Text(
-                    "آزمونک",
+                    "آزمونک طبی",
                     style: _responsiveTextStyle(28, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                     IconButton(
