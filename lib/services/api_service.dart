@@ -7,8 +7,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
  
   // برای شبیه‌ساز iOS یا گوشی واقعی، IP کامپیوتر خود را جایگزین 10.0.2.2 کنید.
-  // static const String _baseUrl = "http://143.20.64.200/api";
- static const String _baseUrl = "http://localhost:5000/api";
+  static const String _baseUrl = "http://143.20.64.200/api";
 
 
    static String get baseUrl => _baseUrl;
@@ -23,7 +22,12 @@ class ApiService {
         return data.map((json) => Question.fromJson(json)).toList();
     } else {
         final responseBody = json.decode(response.body);
-        throw ApiException(responseBody['msg'] ?? 'Failed to load questions', code: responseBody['code']);
+        // throw ApiException(responseBody['msg'] ?? 'Failed to load questions', code: responseBody['code']);
+         throw ApiException(
+            responseBody['msg'] ?? 'Failed to fetch user data', 
+            code: responseBody['code'],
+            statusCode: response.statusCode, // <-- این خط مهم است
+        );
     }
 }
     Future<Map<String, dynamic>> fetchCurrentUser(String token) async {
@@ -35,7 +39,12 @@ class ApiService {
     if (response.statusCode == 200) {
         return json.decode(response.body);
     } else {
-         throw ApiException(responseBody['msg'] ?? 'Failed to fetch user data', code: responseBody['code']);
+         throw ApiException(
+            responseBody['msg'] ?? 'Failed to fetch user data', 
+            code: responseBody['code'],
+            statusCode: response.statusCode, // <-- این خط مهم است
+        );
+        // throw ApiException(responseBody['msg'] ?? 'Failed to fetch user data', code: responseBody['code']);
     }
 }
   

@@ -34,6 +34,15 @@ class _QuizScreenState extends State<QuizScreen> {
   final Map<String, int> _userAnswers = {};
   final HiveService _hiveService = HiveService();
   final Set<String> _bookmarkedQuestions = {};
+  bool _isRetakeMode = false;
+    late List<Question> _originalQuestions;
+
+  // برای نگهداری سوالاتی که قرار است مرور شوند
+  List<Question> _retakeQuestions = [];
+  
+  // برای ذخیره شماره سوالی که کاربر از آنجا وارد حالت مرور شده است
+  int _originalIndexBeforeRetake = 0;
+
 static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
   static const Color lightTeal = Color(0xFF4DB6AC); // Teal روشن‌تر
   static const Color darkTeal = Color(0xFF004D40); // Teal تیره‌تر
@@ -45,6 +54,56 @@ static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
     final screenWidth = MediaQuery.of(context).size.width;
     // Adjust this multiplier as needed for different screen sizes
     return baseSize * (screenWidth / 375.0); // Assuming 375 is a common base width (e.g., iPhone 8)
+  }
+  
+  @override
+  void initState() {
+    super.initState();
+    // در همان ابتدا، یک کپی از سوالات اصلی را ذخیره می‌کنیم
+    _originalQuestions = List.from(widget.questions);
+  }
+
+
+ void _startRetakeSession() {
+    if (_currentIndex == 0) return; // اگر هنوز سوالی جواب داده نشده، کاری نکن
+
+    setState(() {
+      _isRetakeMode = true;
+      _originalIndexBeforeRetake = _currentIndex; // جایگاه فعلی را ذخیره کن
+      
+      // سوالات پاسخ داده شده را جدا کن
+      _retakeQuestions = _originalQuestions.sublist(0, _currentIndex);
+
+      // آزمون مرور را از اول شروع کن
+      _currentIndex = 0;
+      _isAnswered = false;
+      _selectedOptionIndex = null;
+      _isCorrect = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('حالت مرور سوالات فعال شد.')),
+    );
+  }
+
+
+  /// این تابع حالت مرور را خاتمه داده و به آزمون اصلی بازمی‌گردد
+  void _endRetakeSession() {
+    setState(() {
+      _isRetakeMode = false;
+      
+      // به همان سوالی که بودیم برگرد
+      _currentIndex = _originalIndexBeforeRetake;
+
+      // متغیرهای موقت را پاک کن
+      _retakeQuestions = [];
+      _isAnswered = false;
+      _selectedOptionIndex = null;
+      _isCorrect = null;
+    });
+     ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('مرور تمام شد. به ادامه آزمون اصلی بازگشتید.')),
+    );
   }
   void _answerQuestion(int index) {
     if (_isAnswered) return; // اگر قبلا پاسخ داده شده، کاری نکن
@@ -59,16 +118,45 @@ static const Color primaryTeal = Color(0xFF008080); // Teal اصلی
     _userAnswers[widget.questions[_currentIndex].id] = index;
   }
 
+// متد نکست کویشن قبل از هوشمند سازی
+  // void _nextQuestion() {
+  //   if (_currentIndex < widget.questions.length - 1) {
+  //     setState(() {
+  //       _currentIndex++;
+  //       _isAnswered = false;
+  //       _selectedOptionIndex = null;
+  //       _isCorrect = null;
+  //     });
+  //   } else {
+  //     _submitAndShowResults();
+  //   }
+  // }
   void _nextQuestion() {
-    if (_currentIndex < widget.questions.length - 1) {
-      setState(() {
-        _currentIndex++;
-        _isAnswered = false;
-        _selectedOptionIndex = null;
-        _isCorrect = null;
-      });
+    if (_isRetakeMode) {
+      // --- منطق برای حالت مرور ---
+      if (_currentIndex < _retakeQuestions.length - 1) {
+        setState(() {
+          _currentIndex++;
+          _isAnswered = false;
+          _selectedOptionIndex = null;
+          _isCorrect = null;
+        });
+      } else {
+        // مرور تمام شد، به آزمون اصلی برگرد
+        _endRetakeSession();
+      }
     } else {
-      _submitAndShowResults();
+      // --- منطق برای آزمون اصلی (کد قبلی شما) ---
+      if (_currentIndex < _originalQuestions.length - 1) {
+        setState(() {
+          _currentIndex++;
+          _isAnswered = false;
+          _selectedOptionIndex = null;
+          _isCorrect = null;
+        });
+      } else {
+        _submitAndShowResults();
+      }
     }
   }
 
@@ -189,8 +277,11 @@ void _submitAndShowResults() async {
 
   @override
   Widget build(BuildContext context) {
-    final currentQuestion = widget.questions[_currentIndex];
-    final progress = (_currentIndex + 1) / widget.questions.length;
+     final currentQuestions = _isRetakeMode ? _retakeQuestions : _originalQuestions;
+    final currentQuestion = currentQuestions[_currentIndex];
+     final progress = (_currentIndex + 1) / currentQuestions.length;
+    // final currentQuestion = widget.questions[_currentIndex];
+    // final progress = (_currentIndex + 1) / widget.questions.length;
  final fullImageUrl = currentQuestion.imageUrl != null 
       ? "${ApiService.baseUrl.replaceAll('/api', '')}${currentQuestion.imageUrl}" // برای شبیه‌ساز اندروید
       : null;
@@ -201,7 +292,10 @@ void _submitAndShowResults() async {
         elevation: 0,
         centerTitle: true,
         title: AdaptiveTextSize(
-          text: 'سوال ${_currentIndex + 1} از ${widget.questions.length}',
+        //   text: 'سوال ${_currentIndex + 1} از ${widget.questions.length}',
+         text: _isRetakeMode 
+              ? 'مرور: سوال ${_currentIndex + 1} از ${currentQuestions.length}'
+              : 'سوال ${_currentIndex + 1} از ${currentQuestions.length}',
           style: TextStyle(
             fontSize: _getResponsiveSize(context, 18),
             fontWeight: FontWeight.bold,
@@ -209,6 +303,15 @@ void _submitAndShowResults() async {
             fontFamily: 'Vazirmatn',
           ),
         ),
+          actions: [
+          // دکمه فقط در حالت آزمون اصلی و بعد از پاسخ به حداقل یک سوال نمایش داده می‌شود
+          if (!_isRetakeMode && _currentIndex > 0)
+            IconButton(
+              icon: const Icon(Icons.replay_circle_filled_rounded, color: Colors.white),
+              tooltip: 'مرور سوالات پاسخ داده شده',
+              onPressed: _startRetakeSession,
+            ),
+        ],
         
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(_getResponsiveSize(context, 6.0)),

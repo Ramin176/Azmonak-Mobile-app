@@ -207,13 +207,24 @@ Future<bool> tryAutoLogin() async {
       await userBox.put('currentUser', _user!);
       notifyListeners();
        } on ApiException catch (e) { // <--- گرفتن خطای سفارشی
-      print("AuthProvider: Caught an API Exception during refresh: ${e.message}, Code: ${e.code}");
-      
-      if (e.code == 'USER_DEACTIVATED' ) {
-        _isDeactivated = true;
-        notifyListeners();
-        return; 
-      } 
+print("AuthProvider: Caught an API Exception during refresh: ${e.message}, Code: ${e.code}, StatusCode: ${e.statusCode}");
+
+// -->>> شروع منطق جدید و کلیدی <<<---
+
+// اگر کد وضعیت 401 بود (یعنی توکن نامعتبر یا منقضی شده)
+if (e.statusCode == 401) {
+  print("Token is expired or invalid. Logging out automatically.");
+  await logout(); // <--- کاربر را به صورت خودکار خارج کن
+  return; // ادامه تابع را اجرا نکن
+}
+
+// -->>> پایان منطق جدید <<<---
+
+if (e.code == 'USER_DEACTIVATED') {
+  _isDeactivated = true;
+  notifyListeners();
+  return; 
+} 
     
     } catch (e) {
       print("AuthProvider: Failed to refresh user: $e");
