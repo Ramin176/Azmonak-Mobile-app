@@ -7,7 +7,9 @@ import 'package:http/http.dart' as http;
 class ApiService {
  
   // برای شبیه‌ساز iOS یا گوشی واقعی، IP کامپیوتر خود را جایگزین 10.0.2.2 کنید.
-  static const String _baseUrl = "http://143.20.64.200/api";
+  // static const String _baseUrl = "http://143.20.64.200/api";
+ static const String _baseUrl = "http://localhost:5000/api";
+
 
    static String get baseUrl => _baseUrl;
   Future<List<Question>> fetchAllQuestionsForSubject(String subjectId, String token) async {

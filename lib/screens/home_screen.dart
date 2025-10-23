@@ -237,6 +237,7 @@ List<Subject> _flattenTree(List<Subject> tree) {
         name: node.name,
         parent: node.parent,
         price: node.price,
+        questionCount: node.questionCount,
         children: [], // همیشه خالی
       )
     );
@@ -265,7 +266,7 @@ List<Subject> _flattenTree(List<Subject> tree) {
 List<Subject> _buildTreeFromFlatList(List<Subject> flatList) {
   // ۱. یک کپی از لیست ایجاد می‌کنیم تا لیست اصلی تغییر نکند
   final List<Subject> subjectsCopy = flatList.map((s) => 
-    Subject(id: s.id, name: s.name, parent: s.parent, price: s.price, children: [])
+    Subject(id: s.id, name: s.name, parent: s.parent, price: s.price,questionCount:s.questionCount, children: [])
   ).toList();
 
   // ۲. یک Map برای دسترسی سریع به نودها بر اساس ID می‌سازیم

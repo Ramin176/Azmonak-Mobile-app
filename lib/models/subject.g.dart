@@ -22,13 +22,14 @@ class SubjectAdapter extends TypeAdapter<Subject> {
       parent: fields[2] as String?,
       price: fields[3] as double,
       children: (fields[4] as List).cast<Subject>(),
+      questionCount: fields[5] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, Subject obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +39,9 @@ class SubjectAdapter extends TypeAdapter<Subject> {
       ..writeByte(3)
       ..write(obj.price)
       ..writeByte(4)
-      ..write(obj.children);
+      ..write(obj.children)
+      ..writeByte(5)
+      ..write(obj.questionCount);
   }
 
   @override

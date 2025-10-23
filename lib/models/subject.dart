@@ -21,13 +21,15 @@ class Subject extends HiveObject {
   // فیلد children را برمی‌گردانیم و به Hive معرفی‌اش می‌کنیم
   @HiveField(4)
   List<Subject> children; 
-
+  @HiveField(5)
+  final int questionCount;
   Subject({
     required this.id,
     required this.name,
     this.parent,
     required this.price,
     this.children = const [],
+     required this.questionCount,
   });
 
   factory Subject.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,7 @@ class Subject extends HiveObject {
       parent: json['parent']?.toString(),
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       children: childrenList,
+       questionCount: json['questionCount'] as int? ?? 0,
     );
   }
 }

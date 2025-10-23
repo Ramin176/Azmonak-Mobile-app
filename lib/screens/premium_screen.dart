@@ -299,6 +299,18 @@ class _PremiumScreenState extends State<PremiumScreen> {
   }
   
   Widget _buildPlanCard(SubscriptionPlan plan, AppSettings settings, List<Subject> allSubjects) {
+        int totalQuestionsInPlan = 0;
+    for (String subjectIdInPlan in plan.subjectIds) {
+        try {
+            // موضوع را در لیست کل موضوعات پیدا کرده و تعداد سوالاتش را اضافه می‌کنیم
+            final subject = allSubjects.firstWhere((s) => s.id == subjectIdInPlan);
+            totalQuestionsInPlan += subject.questionCount;
+        } catch (e) {
+            // اگر موضوعی پیدا نشد، مشکلی نیست. رد می‌شویم.
+            debugPrint("Subject with ID $subjectIdInPlan not found.");
+        }
+    }
+
     // این ویجت بدون تغییر باقی می‌ماند
     return Card(
       elevation: 4,
@@ -326,6 +338,22 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   const SizedBox(height: 8),
                   Text(plan.description, style: const TextStyle(fontSize: 14, color: textDark, fontFamily: 'Vazirmatn', height: 1.5)),
                 ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.quiz_outlined, size: 16, color: Colors.grey.shade700),
+                    const SizedBox(width: 6),
+                    Text(
+                      'شامل $totalQuestionsInPlan سوال',
+                      style: TextStyle(
+                        fontFamily: 'Vazirmatn',
+                        fontSize: 14,
+                        color: Colors.grey.shade800,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
                 const Divider(height: 32, thickness: 0.5),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
